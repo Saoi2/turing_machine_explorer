@@ -1,43 +1,117 @@
-_0 = 1 l _3 1 r _0
-_1 = 1 l _0 0 r _0
-_2 = 1 r _2 1 r _1
-_3 = 1 r _4 0 l _4
-_4 = 0 r init.find_reg 0 l _2
-dispatch = 0 l dispatch 1 l dispatch.9
-dispatch.0 = 0 r root.search 1 l dispatch.0
-dispatch.1 = 0 l dispatch.0 1 l dispatch.1
-dispatch.2 = 0 l dispatch.1 1 l dispatch.2
-dispatch.3 = 0 l dispatch.2 1 l dispatch.3
-dispatch.4 = 0 l dispatch.3 1 l dispatch.4
-dispatch.5 = 0 l dispatch.4 1 l dispatch.5
-dispatch.6 = 0 l dispatch.5 1 l dispatch.6
-dispatch.7 = 0 l dispatch.6 1 l dispatch.7
-dispatch.8 = 0 l dispatch.7 1 l dispatch.8
-dispatch.9 = 0 l dispatch.8 1 l dispatch.9
-init = 0 r init.find_reg 1 r init
-init.find_reg = 0 r init.find_reg 1 r init.reg_space
-init.reg = 1 l init.return_space 1 r init.reg_space
-init.reg_space = 0 r init.reg *
-init.return_reg = 0 l init.clear_pc_bit 1 l init.return_space
-init.clear_pc_bit = 0 l init.clear_pc_bit 0 l dispatch
-init.return_space = 0 l init.return_reg *
-main = 0 r main[0] 1 r main[1]
-main[0] = 0 r reg.0.inc 0 l pc.carry
-pc.0.1 = * 0 l dispatch
-pc.carry = 1 r reg.cleanup 0 l pc.carry
-reg.-1.inc_2 = 0 r reg.-2.inc_2 1 r reg.-1.inc_2
-reg.-2.inc_2 = 1 r reg.inc.shift_0 1 r reg.-2.inc_2
-reg.0.inc = 1 r reg.prep.space 0 r reg.0.inc_2
-reg.0.inc_2 = 0 r reg.-1.inc_2 1 r reg.0.inc_2
-reg.cleanup = 0 r reg.cleanup 0 r reg.cleanup.1
-reg.cleanup.1 = 0 l reg.cleanup.2 0 r reg.cleanup.1
-reg.cleanup.2 = 1 l dispatch *
-reg.inc.shift_0 = 0 l return.1.0 0 r reg.inc.shift_1
-reg.inc.shift_1 = 1 r reg.inc.shift_0 1 r reg.inc.shift_1
-reg.prep = 1 r reg.prep 1 l dispatch
-reg.prep.space = 0 r reg.prep *
-return.1.0 = 0 l return.1.1 1 l return.1.0
-return.1.1 = 0 l pc.carry 1 l return.1.0
-root = 0 r main 1 r root[1]
-root.search = 0 r root.search 1 r root
-root[1] = 0 l pc.0.1 1 r init
+#! start boot1.A
+# Based on the NQL register machine:
+# <https://github.com/sorear/metamath-turing-machines>
+boot1.A 0 1 L boot1.D
+boot1.A 1 1 R boot1.A
+boot1.B 0 1 L boot1.A
+boot1.B 1 0 R boot1.A
+boot1.C 0 1 R boot1.C
+boot1.C 1 1 R boot1.B
+boot1.D 0 1 R boot1.E
+boot1.D 1 0 L boot1.E
+boot1.E 0 0 R boot2.find_regfile
+boot1.E 1 0 L boot1.C
+boot2.find_regfile 0 0 R boot2.find_regfile
+boot2.find_regfile 1 1 R boot2.reg_1
+boot2.reg.create 0 0 R boot2.find_regfile
+boot2.reg.create 1 1 R boot2.reg.create
+boot2.reg_1 0 0 R boot2.reg_2
+boot2.reg_2 0 1 L boot2.return_1
+boot2.reg_2 1 1 R boot2.reg_1
+boot2.return_1 0 0 L boot2.return_2
+boot2.return_2 0 0 L boot2.return_3
+boot2.return_2 1 1 L boot2.return_1
+boot2.return_3 0 0 L boot2.return_3
+boot2.return_3 1 0 L dispatch
+dispatch 0 0 L dispatch
+dispatch 1 1 L dispatch.9
+dispatch.0 0 0 L root.find_pc
+dispatch.0 1 1 L dispatch.0
+dispatch.1 0 0 L dispatch.0
+dispatch.1 1 1 L dispatch.1
+dispatch.2 0 0 L dispatch.1
+dispatch.2 1 1 L dispatch.2
+dispatch.3 0 0 L dispatch.2
+dispatch.3 1 1 L dispatch.3
+dispatch.4 0 0 L dispatch.3
+dispatch.4 1 1 L dispatch.4
+dispatch.5 0 0 L dispatch.4
+dispatch.5 1 1 L dispatch.5
+dispatch.6 0 0 L dispatch.5
+dispatch.6 1 1 L dispatch.6
+dispatch.7 0 0 L dispatch.6
+dispatch.7 1 1 L dispatch.7
+dispatch.8 0 0 L dispatch.7
+dispatch.8 1 1 L dispatch.8
+dispatch.9 0 0 L dispatch.8
+dispatch.9 1 1 L dispatch.9
+jump_0_1 1 0 L dispatch
+main[0] 0 0 R reg.0.dec
+main[0] 1 1 R halt
+main[] 0 0 R main[0]
+main[] 1 1 R reg.0.inc
+pc.inc 0 1 R reg.cleanup_1
+pc.inc 1 0 L pc.inc
+reg.-1.dec_2 0 0 R reg.-2.dec_2
+reg.-1.dec_2 1 1 R reg.-1.dec_2
+reg.-1.inc_2 0 0 R reg.-2.inc_2
+reg.-1.inc_2 1 1 R reg.-1.inc_2
+reg.-2.dec_2 0 1 L reg.return_2_1
+reg.-2.dec_2 1 0 R reg.dec.check
+reg.-2.inc_2 0 1 R reg.inc.shift_1
+reg.-2.inc_2 1 1 R reg.-2.inc_2
+reg.0.dec 0 1 R reg.prep_1
+reg.0.dec 1 0 R reg.0.dec_2
+reg.0.dec_2 0 0 R reg.-1.dec_2
+reg.0.dec_2 1 1 R reg.0.dec_2
+reg.0.inc 0 1 R reg.prep_1
+reg.0.inc 1 0 R reg.0.inc_2
+reg.0.inc_2 0 0 R reg.-1.inc_2
+reg.0.inc_2 1 1 R reg.0.inc_2
+reg.1.inc 0 1 R reg.prep_1
+reg.1.inc 1 0 R reg.1.inc_2
+reg.1.inc_2 0 0 R reg.0.inc_2
+reg.1.inc_2 1 1 R reg.1.inc_2
+reg.2.inc 0 1 R reg.prep_1
+reg.2.inc 1 0 R reg.2.inc_2
+reg.2.inc_2 0 0 R reg.1.inc_2
+reg.2.inc_2 1 1 R reg.2.inc_2
+reg.cleanup_1 0 0 R reg.cleanup_1
+reg.cleanup_1 1 0 R reg.cleanup_2
+reg.cleanup_2 0 0 L reg.cleanup_3
+reg.cleanup_2 1 0 R reg.cleanup_2
+reg.cleanup_3 0 1 L dispatch
+reg.dec.check 0 0 L reg.-2.dec_2
+reg.dec.check 1 1 R reg.dec.scan_1
+reg.dec.scan_1 1 1 R reg.dec.scan_1
+reg.dec.scan_1 0 0 R reg.dec.scan_2
+reg.dec.scan_2 0 0 L reg.dec.scan_3
+reg.dec.scan_2 1 1 R reg.dec.scan_1
+reg.dec.scan_3 0 0 L reg.dec.shift_2
+reg.dec.shift_1 0 1 L reg.dec.shift_2
+reg.dec.shift_1 1 1 L reg.dec.shift_1
+reg.dec.shift_2 0 0 L reg.return_1_1
+reg.dec.shift_2 1 0 L reg.dec.shift_1
+reg.inc.shift_1 0 0 L reg.return_1_1
+reg.inc.shift_1 1 0 R reg.inc.shift_2
+reg.inc.shift_2 0 1 R reg.inc.shift_1
+reg.inc.shift_2 1 1 R reg.inc.shift_2
+reg.prep_1 0 0 R reg.prep_2
+reg.prep_2 0 1 R reg.prep_2
+reg.prep_2 1 1 L dispatch
+reg.return_1_1 0 0 L reg.return_1_2
+reg.return_1_1 1 1 L reg.return_1_1
+reg.return_1_2 0 0 L pc.inc
+reg.return_1_2 1 1 L reg.return_1_1
+reg.return_2_1 0 0 L reg.return_2_2
+reg.return_2_1 1 1 L reg.return_2_1
+reg.return_2_2 0 0 L reg.return_2_3
+reg.return_2_2 1 1 L reg.return_2_1
+reg.return_2_3 0 0 L pc.inc
+reg.return_2_3 1 0 L pc.inc
+root.find_pc 0 0 R root.find_pc
+root.find_pc 1 1 R root[]
+root[1] 0 0 L jump_0_1
+root[1] 1 1 R boot2.reg.create
+root[] 0 0 R main[]
+root[] 1 1 R root[1]

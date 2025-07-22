@@ -3,125 +3,7 @@
 import sys
 import argparse
 import traceback
-
-class TuringMachine:
-    def __init__(self):
-        self.entry = "HLT"
-        self.states = {}
-        self.statename = "HLT"
-        self.source = {}
-        self.stdin_state_lineno = 1
-        self.left = []
-        self.right = []
-        self.tape = "0"
-        self.stepcount = 0
-        self.statetrace = [("HLT", '0', 0)]
-        self.looping = False
-
-    def tape_at(self, index):
-        if index == 0:
-            return self.state
-        elif index < 0 and len(self.left) <= -index:
-            return self.left[len(self.left) + index]
-        elif index > 0 and len(self.right) <= index:
-            return self.right[len(self.right) - index]
-        else:
-            return '0'
-
-    def load(self, filename):
-        linenumber = 1
-        with open(filename,"r") as f:
-            for l in f:
-                l = l.rstrip()
-                self.source[(filename, linenumber)] = l.rstrip()
-                l = l.strip()
-                if "=" in l:
-                    self.loadstate(l, filename, linenumber)
-                linenumber = linenumber + 1
-
-    def loadstate(self, line, filename="<STDIN>", linenumber=None):
-
-        (name, rhs) = line.split("=", 1)
-        name = name.strip()
-        rhs = rhs.strip().split()
-        if not rhs:
-            del self.states[name]
-            return True
-        state = {'0': None, '1': None, 'name': name, 'filename': filename, 'lineno': linenumber or self.stdin_state_lineno}
-        if rhs[0] != "*":
-            if len(rhs) not in (4, 6) or rhs[0] not in ('0', '1') or rhs[1] not in ('l', 'r'):
-                return False
-            state['0'] = (rhs[0], rhs[1], rhs[2])
-        if rhs[-1] != "*":
-            if len(rhs) not in (4, 6) or rhs[-3] not in ('0','1') or rhs[-2] not in ('l', 'r'):
-                return False
-            state['1'] = (rhs[-3], rhs[-2], rhs[-1])
-
-        if not linenumber:
-            self.source[("<STDIN>", self.stdin_state_lineno)] = line
-            self.stdin_state_lineno = self.stdin_state_lineno + 1
-
-        if self.entry not in self.states:
-            self.entry = name # First state in file
-
-        self.states[name] = state
-
-        return True
-
-    def printstate(self, state):
-        rv = "{} = ".format(state['name'])
-        if state['0']:
-            rv += "{} {} {} ".format(*state['0'])
-        else:
-            rv += "* "
-        if state['1']:
-            rv += "{} {} {}".format(*state['1'])
-        else:
-            rv += "*"
-
-        return rv
-
-    def save(self, filename):
-        with open(filename, "w") as f:
-            if self.entry in self.states:
-                f.write("{}\n".format(self.printstate(self.states[self.entry])))
-            for statename in sorted(x for x in self.states if x != self.entry):
-                f.write("{}\n".format(self.printstate(self.states[statename])))
-
-
-
-    def step(self):
-        self.looping = False
-        try:
-            state = self.states[self.statename]
-        except KeyError:
-            return False
-        half=state[self.tape]
-        if not half:
-            return False
-        tape = half[0]
-        if half[1] == 'l':
-            self.right.append(tape)
-            if self.left:
-                self.tape = self.left.pop()
-            else:
-                self.tape = '0'
-                looping = state['0'] and state['0'][2] == self.statename
-        else:
-            self.left.append(tape)
-            if self.right:
-                self.tape = self.right.pop()
-            else:
-                self.tape = '0'
-                looping = state['0'] and state['0'][2] == self.statename
-
-        self.statename = half[2]
-        if (self.statename, self.tape) == self.statetrace[0][:2]:
-            self.statetrace[0] = (self.statename, self.tape, self.statetrace[0][2] + 1)
-        else:
-            self.statetrace = [(self.statename, self.tape, 1)] + self.statetrace[:10]
-
-        return True
+from tm import TuringMachine
 
 class TMDB:
 
@@ -131,6 +13,7 @@ class TMDB:
         self.quit = False
         self.repeatcommand = False
         self.listsize = 10
+        self.stdin_lineno = 1
 
     def repeatcount(self, cmd):
         if len(cmd) == 2 and isnumeric(cmd[1]):
@@ -142,9 +25,10 @@ class TMDB:
 
         self.repeatcommand = False
 
-        if "=" in cmd:
-            if not self.tm.loadstate(cmd):
+        if cmd.startswith("tm") and len(cmd.split()) > 1:
+            if not self.tm.loadline(cmd.split(maxsplit=1)[1], "<STDIN>", self.stdin_lineno):
                 print("Could not parse state")
+            self.stdin_lineno = self.stdin_lineno + 1
             return False
         cmd = cmd.split()
 
@@ -187,8 +71,8 @@ class TMDB:
         if cmd[0] in ("start"):
             self.tm.left = []
             self.tm.right = []
-            self.tm.tape = '0'
-            self.tm.statename = self.tm.entry
+            self.tm.symbol = self.tm.fill
+            self.tm.statename = self.tm.start
             return True
 
         if cmd[0] in ("run"):
@@ -201,13 +85,6 @@ class TMDB:
                 return False
             self.tm.statename = cmd[1]
             return True
-
-        if cmd[0] in ("entry"):
-            if len(cmd) != 2:
-                print("entry [state]")
-                return False
-            self.tm.entry = cmd[1]
-            return False
 
         if cmd[0] in ("q", "quit"):
             self.quit = True
@@ -224,15 +101,16 @@ class TMDB:
                 print("save [filename]")
                 return False
             self.tm.save(cmd[1])
+            return False
 
         if cmd[0] in ("bt", "backtrace"):
             for trace in reversed(self.tm.statetrace):
-                state = self.tm.states[trace[0]]
-                if state:
-                    print("{} [{}] x {}: {}".format(state['lineno'], trace[1], trace[2],
-                        self.tm.source[(state['filename'], state['lineno'])]))
+                if (trace[0], trace[1]) in self.tm.states:
+                    state = self.tm.states[(trace[0], trace[1])]
+                    print("{} {} x {}: {}".format(state.filename, state.lineno, trace[2],
+                        self.tm.source[(state.filename, state.lineno)]))
                 else:
-                    print("   [{}] x {}: {} = **undefined**".format(trace[1], trace[2], trace[0]))
+                    print("{} {} x {}".format(trace[0], trace[1], trace[2]))
             return False
 
         if cmd[0] in ("set"):
@@ -244,15 +122,16 @@ class TMDB:
             listing = []
             filename = None
             lineno = 1
-            if self.tm.statename in self.tm.states:
-                filename = self.tm.states[self.tm.statename]['filename']
-                lineno = self.tm.states[self.tm.statename]['lineno']
+            if (self.tm.statename, self.tm.symbol) in self.tm.states:
+                filename = self.tm.states[(self.tm.statename, self.tm.symbol)].filename
+                lineno = self.tm.states[(self.tm.statename, self.tm.symbol)].lineno
             if len(cmd) > 1:
                 if ":" not in cmd[1]:
                     statename = cmd[1].split(",")[0] # range is unsupported we just use the start
-                    if statename in self.tm.states:
-                        filename = self.tm.states[statename]['filename']
-                        lineno = self.tm.states[statename]['lineno']
+                    for symbol in reversed(sorted(self.tm.symbols)):
+                        if (statename, symbol) in self.tm.states:
+                            filename = self.tm.states[(statename, symbol)].filename
+                            lineno = self.tm.states[(statename, symbol)].lineno
                 elif cmd[1].split(":")[1].isnumeric():
                     filename = cmd[1].split(":")[0]
                     lineno = cmd[1].split(":")[1]
@@ -297,6 +176,18 @@ class TMDB:
                         print("{} {}: {}".format(filename, lineno, self.tm.source[(filename, lineno)]))
                     else:
                         print(bp)
+            if cmd[1] in ("registers"):
+                i = -len(self.tm.left)
+                while self.tm.tape_at(i) == self.tm.fill and i < len(self.tm.right):
+                    i = i + 1
+                while i < len(self.tm.right):
+                    count = 0
+                    symbol = self.tm.tape_at(i)
+                    while self.tm.tape_at(i) == symbol and i < len(self.tm.right):
+                        count = count + 1
+                        i = i + 1
+                    if symbol != self.tm.fill or i < len(self.tm.right):
+                        print("{} x {}".format(symbol, count))
             return False
 
         return True # by default print information
@@ -325,14 +216,12 @@ class TMDB:
                     right = "".join(reversed(self.tm.right[-35:]))
                 else:
                     right = ("".join(reversed(self.tm.right)) + ("0" * 35))[:35]
-                print("{}[{}]{}".format(left,self.tm.tape,right))
-                if self.tm.statename in self.tm.states:
-                    state = self.tm.states[self.tm.statename]
-                    print("{} {}".format(state['lineno'], self.tm.source[(state['filename'], state['lineno'])]))
+                print("{}[{}]{}".format(left,self.tm.symbol,right))
+                if (self.tm.statename, self.tm.symbol) in self.tm.states:
+                    state = self.tm.states[(self.tm.statename, self.tm.symbol)]
+                    print("{} {}".format(state.lineno, self.tm.source[(state.filename, state.lineno)]))
                     if self.tm.statename in self.breakpoints:
                         print("Breakpoint")
-                    elif not state[self.tm.tape]:
-                        print("Undefined Transition")
                     elif self.tm.looping:
                         print("looping detected")
 
@@ -340,7 +229,7 @@ class TMDB:
                     if self.tm.statename == "HLT":
                         print("HALTED")
                     else:
-                        print("Undefined state: {}".format(self.tm.statename))
+                        print("Undefined transition: {} {}".format(self.tm.statename, self.tm.symbol))
 
 
 import argparse
