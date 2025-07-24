@@ -5,7 +5,7 @@
 
 from collections import namedtuple
 
-Transition = namedtuple("Transition", ["write", "direction", "nextstate", "filename", "lineno"])
+Transition = namedtuple("Transition", ["write", "direction", "nextstate"])
 
 class TuringMachine:
     def __init__(self):
@@ -13,6 +13,7 @@ class TuringMachine:
         self.states = {}
         self.statename = "0"
         self.source = {}
+        self.sourcemap = {}
         self.left = []
         self.right = []
         self.symbol = "0"
@@ -82,7 +83,8 @@ class TuringMachine:
             #attempt to load as a state transition
             line = line.strip().split()
             if len(line) == 5 and len(line[1]) == 1 and len(line[2]) == 1 and len(line[3]) == 1 and line[3] in "lL<nNsS=rR>":
-                self.states[(line[0], line[1])] = Transition(*line[2:], filename, lineno)
+                self.states[(line[0], line[1])] = Transition(*line[2:])
+                self.sourcemap[(line[0], line[1])] = (filename, lineno)
                 self.symbols.add(line[1])
                 self.symbols.add(line[2])
             else:
@@ -97,14 +99,14 @@ class TuringMachine:
 
             for statetuple in sorted(self.states):
                 # print associated comments with the state first
-                filename = self.states[statetuple].filename
-                lineno = self.states[statetuple].lineno
-                while (filename, lineno - 1) in self.source and self.source[(filename, lineno - 1)].startswith("#"):
-                    lineno = lineno - 1
-                while self.source[(filename, lineno)].startswith("#"):
-                    if not self.source[(filename, lineno)].startswith("#!"):
-                        f.write("{}\n", self.source[(filename, lineno)])
-                    lineno = lineno + 1
+                if statetuple in self.sourcemap:
+                    (filename, lineno) = self.sourcemap[statetuple]
+                    while (filename, lineno - 1) in self.source and self.source[(filename, lineno - 1)].startswith("#"):
+                        lineno = lineno - 1
+                    while self.source[(filename, lineno)].startswith("#"):
+                        if not self.source[(filename, lineno)].startswith("#!"):
+                            f.write("{}\n", self.source[(filename, lineno)])
+                        lineno = lineno + 1
                 f.write("{} {} {} {} {}\n".format(*statetuple, *self.states[statetuple][:3]))
 
 

@@ -68,18 +68,18 @@ class TMDB:
             self.repeatcommand = True
             return True
 
-        if cmd[0] in ("start"):
+        if cmd[0] in ("start",):
             self.tm.left = []
             self.tm.right = []
             self.tm.symbol = self.tm.fill
             self.tm.statename = self.tm.start
             return True
 
-        if cmd[0] in ("run"):
+        if cmd[0] in ("run",):
             self.processcommand("start")
             return self.processcommand("continue")
 
-        if cmd[0] in ("jump"):
+        if cmd[0] in ("jump",):
             if len(cmd) != 2:
                 print("jump [state]")
                 return False
@@ -90,13 +90,13 @@ class TMDB:
             self.quit = True
             return False
 
-        if cmd[0] in ("load"):
+        if cmd[0] in ("load",):
             if len(cmd) != 2:
                 print("load [filename]")
                 return False
             self.tm.load(cmd[1])
 
-        if cmd[0] in ("save"):
+        if cmd[0] in ("save",):
             if len(cmd) != 2:
                 print("save [filename]")
                 return False
@@ -107,13 +107,12 @@ class TMDB:
             for trace in reversed(self.tm.statetrace):
                 if (trace[0], trace[1]) in self.tm.states:
                     state = self.tm.states[(trace[0], trace[1])]
-                    print("{} {} x {}: {}".format(state.filename, state.lineno, trace[2],
-                        self.tm.source[(state.filename, state.lineno)]))
+                    print("{} {} x {}: {} {} {}".format(*trace, *state))
                 else:
                     print("{} {} x {}".format(trace[0], trace[1], trace[2]))
             return False
 
-        if cmd[0] in ("set"):
+        if cmd[0] in ("set",):
             if len(cmd) > 2 and cmd[1] in ("listsize") and cmd[2].isnumeric():
                 self.listsize = int(cmd[2])
                 return False
@@ -122,16 +121,14 @@ class TMDB:
             listing = []
             filename = None
             lineno = 1
-            if (self.tm.statename, self.tm.symbol) in self.tm.states:
-                filename = self.tm.states[(self.tm.statename, self.tm.symbol)].filename
-                lineno = self.tm.states[(self.tm.statename, self.tm.symbol)].lineno
+            if (self.tm.statename, self.tm.symbol) in self.tm.sourcemap:
+                filename, lineno = self.tm.sourcemap[(self.tm.statename, self.tm.symbol)]
             if len(cmd) > 1:
                 if ":" not in cmd[1]:
                     statename = cmd[1].split(",")[0] # range is unsupported we just use the start
                     for symbol in reversed(sorted(self.tm.symbols)):
-                        if (statename, symbol) in self.tm.states:
-                            filename = self.tm.states[(statename, symbol)].filename
-                            lineno = self.tm.states[(statename, symbol)].lineno
+                        if (statename, symbol) in self.tm.sourcemap:
+                            filename, lineno = self.tm.sourcemap[(self.tm.statename, self.tm.symbol)]
                 elif cmd[1].split(":")[1].isnumeric():
                     filename = cmd[1].split(":")[0]
                     lineno = cmd[1].split(":")[1]
@@ -144,8 +141,10 @@ class TMDB:
                         lines.append(">{} {}: {}".format(filename, lineno + offset, self.tm.source[(filename, lineno + offset)]))
                     else:
                         lines.append(" {} {}: {}".format(filename, lineno + offset, self.tm.source[(filename, lineno + offset)]))
+                    lines_displayed = lines_displayed + 1
                 if offset > 0 and (filename, lineno - offset) in self.tm.source:
                     lines.insert(0," {} {}: {}".format(filename, lineno - offset, self.tm.source[(filename, lineno - offset)]))
+                    lines_displayed = lines_displayed + 1
                 if lines_displayed >= self.listsize:
                     break
 
@@ -170,9 +169,8 @@ class TMDB:
         if cmd[0] in ("info"):
             if cmd[1] in ("b", "break", "breakpoints"):
                 for bp in self.breakpoints:
-                    if bp in self.tm.states:
-                        filename = self.tm.states[bp]['filename']
-                        lineno = self.tm.states[bp]['lineno']
+                    if bp in self.tm.sourcemap:
+                        filename, lineno = self.tm.sourcemap[bp]
                         print("{} {}: {}".format(filename, lineno, self.tm.source[(filename, lineno)]))
                     else:
                         print(bp)
@@ -219,7 +217,8 @@ class TMDB:
                 print("{}[{}]{}".format(left,self.tm.symbol,right))
                 if (self.tm.statename, self.tm.symbol) in self.tm.states:
                     state = self.tm.states[(self.tm.statename, self.tm.symbol)]
-                    print("{} {}".format(state.lineno, self.tm.source[(state.filename, state.lineno)]))
+                    print("{} {} {} {} {}".format(self.tm.statename, self.tm.symbol,
+                        *self.tm.states[(self.tm.statename, self.tm.symbol)]))
                     if self.tm.statename in self.breakpoints:
                         print("Breakpoint")
                     elif self.tm.looping:
