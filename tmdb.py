@@ -16,7 +16,7 @@ class TMDB:
         self.stdin_lineno = 1
 
     def repeatcount(self, cmd):
-        if len(cmd) == 2 and isnumeric(cmd[1]):
+        if len(cmd) == 2 and cmd[1].isnumeric():
             return int(cmd[1])
         else:
             return 1
@@ -176,16 +176,41 @@ class TMDB:
                         print(bp)
             if cmd[1] in ("registers"):
                 i = -len(self.tm.left)
-                while self.tm.tape_at(i) == self.tm.fill and i < len(self.tm.right):
-                    i = i + 1
-                while i < len(self.tm.right):
-                    count = 0
-                    symbol = self.tm.tape_at(i)
-                    while self.tm.tape_at(i) == symbol and i < len(self.tm.right):
-                        count = count + 1
+                current_cells = []
+                while i <= len(self.tm.right):
+                    # look for a run
+                    for pattern_length in (1,2,3,4,5):
+                        run_length = 1
+                        while i + run_length*pattern_length < len(self.tm.right):
+                            for pattern_i in range(pattern_length):
+                                if self.tm.tape_at(i + pattern_i) != self.tm.tape_at(i + pattern_i + run_length*pattern_length):
+                                    break
+                            else:
+                                run_length = run_length + 1
+                                continue
+                            break
+                        if run_length >= 10:
+                            break
+                    else:
+                        current_cells.append(self.tm.tape_at(i))
                         i = i + 1
-                    if symbol != self.tm.fill or i < len(self.tm.right):
-                        print("{} x {}".format(symbol, count))
+                        continue
+
+                    # we have found a run
+                    if current_cells:
+                        print("{:>10} x {}".format(1, "".join(current_cells)))
+
+                    current_cells = []
+                    for pattern_i in range(pattern_length):
+                        current_cells.append(self.tm.tape_at(i + pattern_i))
+
+                    print("{:>10} x {}".format(run_length, "".join(current_cells)))
+                    current_cells = []
+                    i = i + pattern_length * run_length
+
+                if current_cells:
+                    print("{:>10} x {}".format(1, "".join(current_cells)))
+
             return False
 
         return True # by default print information
