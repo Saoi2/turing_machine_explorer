@@ -6,7 +6,7 @@ from TMBuilder import subroutine
 class Main(TMBuilder.TMBuilder):
 
     def __init__(self):
-        super.__init__(*argc, *argv)
+        super().__init__()
         self.prooflist = self.reg("prooflist")
         self.nextproof = self.reg("nextproof")
         self.topwff = self.reg("topwff")
@@ -55,7 +55,7 @@ class Main(TMBuilder.TMBuilder):
     @subroutine
     def v_4(self):
         return [
-            *self.v3(),
+            *self.v_3(),
             self.topwff.inc
                ]
 
@@ -133,8 +133,8 @@ class Main(TMBuilder.TMBuilder):
             self.if_not_dec(
                 self.axiomcode,
                 [
-                    self.while_dec(self.wfftop, ()),
-                    self.while_dec(self.scratch1,self.wfftop.inc),
+                    self.while_dec(self.topwff, ()),
+                    self.while_dec(self.scratch1,self.topwff.inc),
                 ]
             ),
             self.while_dec(self.scratch1, ())
@@ -188,7 +188,7 @@ class Main(TMBuilder.TMBuilder):
             self.while_dec(self.scratch1, p1.inc),
             self.while_dec(p2, [self.scratch1.inc, self.scratch3.inc]),
             self.while_dec(self.scratch1, p2.inc),
-            self.if_eq(scratch2, scratch3, self.p1.inc)
+            self.if_eq(self.scratch2, self.scratch3, p1.inc)
                 ]
 
     @subroutine
@@ -220,18 +220,18 @@ class Main(TMBuilder.TMBuilder):
             self.while_dec(self.param1, ()),
             self.while_dec(self.param2, ()),
             self.while_dec(self.param3, ()),
-            self.unpair(scratch1, scratch2, prooflist),
-            self.while_dec(scratch2, prooflist.inc),
-            self.while_dec(scratch1, axiomcode.inc),
-            self.unpair(scratch1, scratch2, prooflist),
-            self.while_dec(scratch2, prooflist.inc),
-            self.while_dec(scratch1, param1.inc),
-            self.unpair(scratch1, scratch2, prooflist),
-            self.while_dec(scratch2, prooflist.inc),
-            self.while_dec(scratch1, param2.inc),
-            self.unpair(scratch1, scratch2, prooflist),
-            self.while_dec(scratch2, prooflist.inc),
-            self.while_dec(scratch1, param3.inc),
+            self.unpair(self.scratch1, self.scratch2, self.prooflist),
+            self.while_dec(self.scratch2, self.prooflist.inc),
+            self.while_dec(self.scratch1, self.axiomcode.inc),
+            self.unpair(self.scratch1, self.scratch2, self.prooflist),
+            self.while_dec(self.scratch2, self.prooflist.inc),
+            self.while_dec(self.scratch1, self.param1.inc),
+            self.unpair(self.scratch1, self.scratch2, self.prooflist),
+            self.while_dec(self.scratch2, self.prooflist.inc),
+            self.while_dec(self.scratch1, self.param2.inc),
+            self.unpair(self.scratch1, self.scratch2, self.prooflist),
+            self.while_dec(self.scratch2, self.prooflist.inc),
+            self.while_dec(self.scratch1, self.param3.inc),
 
             # B1
             # no select since if axiomcode = 0 all selects reject the new entry
@@ -274,7 +274,7 @@ class Main(TMBuilder.TMBuilder):
             # INF+COl+SEP
             # E. y ( A. z (( z e. x -> ( E. x A. y P -> z e. y ) ) /\ ( z e. y -> E. x P ) ) /\ A. x ( x e. y -> A. z  ( A. y P -> E. z ( z e. y /\ P ) ) ) )
             v_1, v_2, v_2, v_0, wel, v_0, v_1, par1, wal, wex, v_2, v_1, wel, wim, wim,
-            v_2, v_1, wel, v_0, align_8, par1, wex, wim, wa,
+            v_2, v_1, wel, v_0, par1, wex, wim, wa,
             wal, v_0, v_0, v_1, wel, v_2, v_1, par1, wal,
             v_2, v_2, v_1, wel, par1, wa, wex, wim, wal, wim, wal, wa, wex,
             select,

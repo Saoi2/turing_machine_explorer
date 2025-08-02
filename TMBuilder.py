@@ -3,34 +3,27 @@
 import tm
 
 framework = """
-0 0 1 L 3
-0 1 1 R 0
-1 0 1 L 0
-1 1 0 R 0
-2 0 1 R 2
-2 1 1 R 1
-3 0 1 R 4
-3 1 0 L 4
-4 0 0 R boot2.find_regfile
-4 1 0 L 2
-boot2.find_regfile 0 0 R boot2.find_regfile
-boot2.find_regfile 1 1 R boot2.reg_1
-boot2.reg.create 0 0 R boot2.find_regfile
-boot2.reg.create 1 1 R boot2.reg.create
-boot2.reg_1 0 0 R boot2.reg_2
-boot2.reg_2 0 1 L boot2.return_1
-boot2.reg_2 1 1 R boot2.reg_1
-boot2.return_1 0 0 L boot2.return_2
-boot2.return_2 0 0 L boot2.return_3
-boot2.return_2 1 1 L boot2.return_1
-boot2.return_3 0 0 L boot2.return_3
-boot2.return_3 1 0 L dispatch
+boot1.A 0 1 R boot1.B
+boot1.A 1 1 L boot1.C
+boot1.B 0 0 L boot1.A
+boot1.B 1 0 L boot1.D
+boot1.C 0 1 L boot1.A
+boot1.C 1 1 R [register_0_inc]
+boot1.D 0 1 L boot1.B
+boot1.D 1 1 R boot1.E
+boot1.E 0 0 R boot1.D
+boot1.E 1 0 R boot1.B
+boot2.0 1 1 R boot2.1
+boot2.1 0 0 R boot2.0
+boot2.1 1 1 R boot2.2
+boot2.2 0 0 R [register_0_inc]
+boot2.2 1 1 R [register_0_dec
 dispatch 0 0 L dispatch
+dispatch 1 1 L [largest_dispatch]
 dispatch.0 0 0 L root.find_pc
 dispatch.0 1 1 L dispatch.0
-jump(0,0,1) 1 0 L dispatch
-pc.next 0 1 R reg.cleanup_1
-pc.next 1 0 L pc.next
+pc.inc 0 1 R reg.cleanup_1
+pc.inc 1 0 L pc.inc
 reg.-1.dec 0 0 R reg.-2.dec
 reg.-1.dec 1 1 R reg.-1.dec
 reg.-1.inc 0 0 R reg.-2.inc
@@ -48,9 +41,8 @@ reg.dec.check 0 0 L reg.-2.dec
 reg.dec.check 1 1 R reg.dec.scan_1
 reg.dec.scan_1 1 1 R reg.dec.scan_1
 reg.dec.scan_1 0 0 R reg.dec.scan_2
-reg.dec.scan_2 0 0 L reg.dec.scan_3
+reg.dec.scan_2 0 0 L reg.dec.shift_1
 reg.dec.scan_2 1 1 R reg.dec.scan_1
-reg.dec.scan_3 0 0 L reg.dec.shift_2
 reg.dec.shift_1 0 1 L reg.dec.shift_2
 reg.dec.shift_1 1 1 L reg.dec.shift_1
 reg.dec.shift_2 0 0 L reg.return_1_1
@@ -64,20 +56,20 @@ reg.prep_2 0 1 R reg.prep_2
 reg.prep_2 1 1 L dispatch
 reg.return_1_1 0 0 L reg.return_1_2
 reg.return_1_1 1 1 L reg.return_1_1
-reg.return_1_2 0 0 L pc.next
+reg.return_1_2 0 0 L pc.inc
 reg.return_1_2 1 1 L reg.return_1_1
 reg.return_2_1 0 0 L reg.return_2_2
 reg.return_2_1 1 1 L reg.return_2_1
 reg.return_2_2 0 0 L reg.return_2_3
 reg.return_2_2 1 1 L reg.return_2_1
-reg.return_2_3 0 0 L pc.next
-reg.return_2_3 1 0 L pc.next
+reg.return_2_3 0 0 L pc.inc
+reg.return_2_3 1 0 L pc.inc
 root.find_pc 0 0 R root.find_pc
 root.find_pc 1 1 R root[]
-root[1] 0 0 L jump(0,0,1)
-root[1] 1 1 R boot2.reg.create
-root[] 0 0 R main
+root[] 0 0 R boot2.0
 root[] 1 1 R root[1]
+root[1] 0 0 R main
+root[1] 1 0 L dispatch
 """
 
 
@@ -92,18 +84,24 @@ class Register(str):
             return super().__getattribute__(name)
 
 def subroutine(func):
-    """Decorator which memoizes a method, and turns the return value
-    into a sequence number"""
+    """Decorator which memoizes a method, and adds the return value to the sequences list"""
 
     def _wrapper(self, *args):
         new_args = tuple(self.add_sequence(v) for v in args)
-        key = (func, *new_args)
+        key = (func.__name__, *new_args)
         try:
             return self.memo[key]
         except KeyError:
-            rv = tuple(v for v in (self.add_sequence(v2) for v2 in func(self, *args)) if v != ())
-            self.memo[key] = rv
-            return rv
+            pass
+
+        rv = tuple(v for v in (self.add_sequence(v2) for v2 in func(self, *new_args)) if v != ())
+        self.memo[key] = rv
+        subroutine_seq = self.add_sequence(rv)
+        if subroutine_seq not in self.sequence_names:
+            self.sequence_names[subroutine_seq] = "{}({})".format(func.__name__, ",".join(str(v) for v in new_args))
+        else:
+            self.sequence_names[subroutine_seq] = "node.{}".format(subroutine_seq)
+        return rv
 
     return _wrapper
 
@@ -112,44 +110,42 @@ def subroutine(func):
 class TMBuilder:
     """Subclass this class to build a particular turing machine"""
     def __init__(self):
-        self.tm = TuringMachine
+        self.tm = tm.TuringMachine()
         self.registers = {}
-        self.decision_states = set()
         self.nextreg = 0
         self.sequences = []
         self.sequence_lookup = {}
+        self.sequence_names = {}
         self.memo = {}
 
     def reg(self, name):
         if name not in self.registers:
             reg = Register(name)
-            lineno = self.lineno
-            self.tm[("reg.{}.inc".format(self.nextreg), "0")] = \
+            self.tm.states[("reg.{}.inc".format(self.nextreg), "0")] = \
                 tm.Transition("0", "R", "reg.{}.inc".format(self.nextreg - 1))
-            self.tm[("reg.{}.inc".format(self.nextreg), "1")] = \
+            self.tm.states[("reg.{}.inc".format(self.nextreg), "1")] = \
                 tm.Transition("1", "R", "reg.{}.inc".format(self.nextreg))
-            self.tm[("reg.{}.dec".format(self.nextreg), "0")] = \
+            self.tm.states[("reg.{}.dec".format(self.nextreg), "0")] = \
                 tm.Transition("0", "R", "reg.{}.dec".format(self.nextreg - 1))
-            self.tm[("reg.{}.dec".format(self.nextreg), "1")] = \
+            self.tm.states[("reg.{}.dec".format(self.nextreg), "1")] = \
                 tm.Transition("1", "R", "reg.{}.dec".format(self.nextreg))
-            self.tm[(reg.inc, "0")] = \
+            self.tm.states[(reg.inc, "0")] = \
                 tm.Transition("1", "R", "reg.prep_1")
-            self.tm[(reg.inc, "1")] = \
+            self.tm.states[(reg.inc, "1")] = \
                 tm.Transition("0", "R", "reg.{}.inc".format(self.nextreg))
-            self.tm[(reg.dec, "0")] = \
+            self.tm.states[(reg.dec, "0")] = \
                 tm.Transition("1", "R", "reg.prep_1")
-            self.tm[(reg.dec, "1")] = \
+            self.tm.states[(reg.dec, "1")] = \
                 tm.Transition("0", "R", "reg.{}.dec".format(self.nextreg))
-            self.lineno = lineno + 8
             self.nextreg = self.nextreg + 1
             self.registers[name] = reg
         return self.registers[name]
 
     def add_sequence(self, tree):
-        while issubclass(tree, (list, tuple)) and len(tree) == 1:
-            tree=tree[1]
+        while isinstance(tree, (list, tuple)) and len(tree) == 1:
+            tree=tree[0]
 
-        if not issubclass(tree, (list, tuple)) or len(tree) == 0:
+        if not isinstance(tree, (list, tuple)) or len(tree) == 0:
             return tree
 
         key = tuple(v for v in (self.add_sequence(entry) for entry in tree) if v!= ())
@@ -177,7 +173,7 @@ class TMBuilder:
             return "dispatch"
 
         state_name = "jump({},{},{})".format(pc, old_pc & ~1, bits)
-        next_state = jump(pc >> 1, old_pc >> 1, bits - 1)
+        next_state = self.jump(pc >> 1, old_pc >> 1, bits - 1)
         self.tm.states[(state_name, "01"[old_pc & 1])] = tm.Transition("01"[pc & 1], "L", next_state)
 
         return state_name
@@ -194,7 +190,7 @@ class TMBuilder:
             return "pc.next"
 
         state_name = "next({},{})".format(old_pc & ~1, bits)
-        next_state = next_pc(old_pc >> 1, bits - 1)
+        next_state = self.next_pc(old_pc >> 1, bits - 1)
         self.tm.states[(state_name, "01"[old_pc & 1])] = tm.Transition("0", "L", next_state)
 
         return state_name
@@ -204,14 +200,14 @@ class TMBuilder:
         if body == ():
             return [[
                 var.dec,
-                jump_dispatch(0, 1, 1)
+                self.jump_dispatch(0, 1, 1)
                 ]]
         else:
             return [[
                 var.dec,
                 [
                     body,
-                    jump_dispatch(0, 3, 2)
+                    self.jump_dispatch(0, 3, 2)
                 ]
                 ]]
 
@@ -229,7 +225,7 @@ class TMBuilder:
         return [[
             [
                 var.dec,
-                next_dispatch(1, 2)
+                self.next_dispatch(1, 2)
             ],
             body
             ]]
@@ -316,3 +312,8 @@ class TMBuilder:
             ]
                 #skip_inc
                 ]
+
+    def load_framework(self):
+        for lineno, l in enumerate(framework.splitlines()):
+            self.tm.loadline(l, "<framework>", lineno)
+
