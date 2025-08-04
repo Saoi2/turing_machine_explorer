@@ -143,8 +143,14 @@ class Main(TMBuilder.TMBuilder):
     @subroutine
     def cparam(self, p):
         return [
+            self.label(
+            "fn",
             [
+                self.label(
+                "test",
                 [
+                    self.label(
+                    "innertest",
                     [
                         self.axiomcode.decnz,
                         [
@@ -153,7 +159,7 @@ class Main(TMBuilder.TMBuilder):
                                 [
                                     # restore axiomcode
                                     [self.axiomcode.inc, self.axiomcode.inc],
-                                    self.next_dispatch(0b1011, 4) # chained return
+                                    "break_innertest" # chained return
                                 ]
                             ],
                             #axiomcode was 1
@@ -166,18 +172,18 @@ class Main(TMBuilder.TMBuilder):
                                 # by putting in a jump here, we can move the
                                 # parameter-dependent part of this subroutine closer to the
                                 # root.
-                                self.next_dispatch(0b0111, 4) # jump to p = scratch1
+                                "break_test" # jump to p = scratch1
                             ]
                         ]
-                    ],
-                    self.next_dispatch(0b01,2) #return
-                ],
+                    ]),
+                    "break_fn" #return
+                ]),
                 # p = scratch1
                 [
                     self.while_decnz(p, ()),
                     self.while_decnz(self.scratch1, p.inc)
                 ]
-            ]
+            ])
                ]
 
     @subroutine
@@ -292,7 +298,6 @@ class Main(TMBuilder.TMBuilder):
             self.cparam(self.param2),
             par1, par2, wal, select,
 
-            # ...
 
             # DET
             # ph
@@ -313,18 +318,20 @@ class Main(TMBuilder.TMBuilder):
             # check if we've proved the false v_0 e. v_0 wff.
             [
                 self.topwff.decnz,
+                self.label(
+                "if",
                 [
                     [
                         self.topwff.decnz,
                         [
                             # restore topwff
                             [self.topwff.inc, self.topwff.inc],
-                            self.next_dispatch(0b011, 3)
+                            "break_if"
                         ]
                     ],
                     # topwff was 1
                     # this corresponds to the false wff (v_0 e. v_0) being proved.
                     "halt"
-                ]
+                ])
             ]
                ]

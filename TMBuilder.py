@@ -3,29 +3,83 @@
 import tm
 
 framework = """
+#! start 0.boot1.A
+# Based on the NQL register machine:
+# <https://github.com/sorear/metamath-turing-machines>
+#
+# States that being with a digit are the states for the framework of the
+# register machine implemented in a turing machine. States that don't begin
+# with a digit are the decision tree states from the subroutines and main().
+#
+# 1. boot1 isn't quite BB(5) but leaves the tape in a good state for boot2.
+#
 0.boot1.A 0 1 R 0.boot1.B
 0.boot1.A 1 1 L 0.boot1.C
 0.boot1.B 0 0 L 0.boot1.A
 0.boot1.B 1 0 L 0.boot1.D
 0.boot1.C 0 1 L 0.boot1.A
+#
+# At the end of boot1 the tape looks like this:
+# 10101010101010101010101010101010101[1]01111000000000000000000000000000000
+# with 1909 singleton 1s.
+#
+# Fortunately the right side of the tape looks like it is part way through
+# a register operation so by transitioning to the right register operation
+# state we can complete the operation and clean up the tape to a good state
+# to start boot2.
+#
 0.boot1.C 1 1 R [4.register_0_inc]
 0.boot1.D 0 1 L 0.boot1.B
 0.boot1.D 1 1 R 0.boot1.E
 0.boot1.E 0 0 R 0.boot1.D
 0.boot1.E 1 0 R 0.boot1.B
+#
+# 1. In boot2 we are going through dispatch and can use much of the framework
+# loop to help clean up the PC and initialize the registers.
+# In particular, boot2 relies on a successful decnz adding one
+# register to the register file as a side-effect.
+#
+# At the end of boot2 the PC contains "11", there are 3822 0s between the PC
+# and the register file, and the register file contains 1909 registers plus
+# the -1 marker register.
+#
 1.boot2.0 1 1 R 1.boot2.1
 1.boot2.1 0 0 R 1.boot2.0
 1.boot2.1 1 1 R 1.boot2.2
-1.boot2.2 0 0 R [4.register_0_inc]
-1.boot2.2 1 1 R [4.register_0_dec
-2.dispatch.0 0 0 L 2.root.find_2.pc
+1.boot2.2 0 0 R [4.register_0.inc]
+1.boot2.2 1 1 R [4.register_0.decnz]
+#
+# 2. The dispatch states handle finding the start of the PC. During the boot2
+# phase the wrong cell is identified as the start of the PC until the last
+# few iterations, but this does not cause any difficulties.
+#
+2.dispatch.0 0 0 L 2.dispatch.find.pc
 2.dispatch.0 1 1 L 2.dispatch.0
-2.root.find_2.pc 0 0 R 2.root.find_2.pc
-2.root.find_2.pc 1 1 R 2.root.1
+2.dispatch.find.pc 0 0 R 2.dispatch.find.pc
+2.dispatch.find.pc 1 1 R 2.root.1
+#
+# 2. The transition of the PC from "101" to "110" initiates the start
+# of the main loop. The rest of the PC is then the decision tree for the main
+# subroutine.
+# Upon overflow to "111" the PC is set back to "110" to start the main loop over.
+# The 2.root* states handle the transitions between these phases.
+#
 2.root.1 0 0 R 1.boot2.0
 2.root.1 1 1 R 2.root.1.1
 2.root.1.1 0 0 R main().0
 2.root.1.1 1 0 R main().0
+#
+# 3. and 4. Register operations go through dispatch twice.
+# In the first phase, the -1 marker register is extended to the left
+# almost to the PC. In the second phase, the register operation is performed,
+# the PC is adjusted, and the -1 marker register is collapsed back to one cell.
+# (This allows the decision tree to take additional cells for the PC if it
+#  wishes in the following dispatch.)
+#
+# The states beginning with 4. handle the transition between phase 1 and phase 2
+# of the register operations. Unlike most dispatch states, these states
+# manipulate the last bit of the PC directly.
+#
 3.reg.-1.dec 0 0 R 3.reg.-2.dec
 3.reg.-1.dec 1 1 R 3.reg.-1.dec
 3.reg.-1.inc 0 0 R 3.reg.-2.inc
@@ -55,6 +109,8 @@ framework = """
 3.reg.inc.shift_2 1 1 R 3.reg.inc.shift_2
 3.reg.prep_1 0 0 R 3.reg.prep_2
 3.reg.prep_2 0 1 R 3.reg.prep_2
+# Phase 1 of the register operation is over. We've forgotten which register
+# and operation we're performing so go through dispatch again:
 3.reg.prep_2 1 1 L 5.continue.0
 3.reg.return_1_1 0 0 L 3.reg.return_1_2
 3.reg.return_1_1 1 1 L 3.reg.return_1_1
@@ -64,6 +120,13 @@ framework = """
 3.reg.return_2_1 1 1 L 3.reg.return_2_1
 3.reg.return_2_2 0 0 L 5.break.1
 3.reg.return_2_2 1 1 L 3.reg.return_2_1
+#
+# 5. PC jump instructions.
+#
+# We don't know if we got to break.0 from phase two of a register instruction
+# or not. Tranisition to the reg -1 cleanup state unconditionally. If we're
+# not transitioning from a register operation this cleanup won't do anything
+# and we'll end up back in dispatch regardless.
 5.break.0 0 1 R 3.reg.cleanup_1
 5.break.0 1 0 L 5.break.0
 5.break.1 0 0 L break.0
@@ -187,44 +250,43 @@ class TMBuilder:
 
         return self.sequence_lookup[key]
 
+    def label(self, name, seq, zeros=0, ones=0):
+        control_flow = ("break_" + name, "continue_" + name)
 
-    def jump_dispatch(self, pc, old_pc, bits):
-        state_name = "jump_dispatch({},{},{})".format(pc, old_pc, bits)
-        next_state = self.jump(pc, old_pc, bits)
-        self.tm.states[(state_name, "0")] = tm.Transition("0", "L", next_state)
-        self.tm.states[(state_name, "1")] = tm.Transition("1", "L", next_state)
-        return state_name
+        def resolve_entry(zeros, ones, val):
+            if val in control_flow:
+                if val == "break_" + name:
+                    return "5.break.{}".format(zeros)
+                else:
+                    return "5.continue.{}".format(ones)
+            if isinstance(val, int) and name in self.sequences[val].unresolved_labels:
+                return self.label(name, self.sequences[val].seq, zeros, ones)
+            return val
 
-    def jump(self, pc, old_pc, bits):
-        if bits == 0:
-            return "dispatch"
+        if len(seq) == 2:
+            return self.add_sequence((resolve_entry(zeros + 1, ones, seq[0]),
+                                      resolve_entry(zeros, ones + 1, seq[1])))
 
-        state_name = "jump({},{},{})".format(pc, old_pc & ~1, bits)
-        next_state = self.jump(pc >> 1, old_pc >> 1, bits - 1)
-        self.tm.states[(state_name, "01"[old_pc & 1])] = tm.Transition("01"[pc & 1], "L", next_state)
+        assert False, "unimplemented"
 
-        return state_name
+    def find_seq(self, name):
+        for i in range(len.self.sequences):
+            if self.sequences[i].name == name:
+                return i
 
-    def next_dispatch(self, old_pc, bits):
-        state_name = "next_dispatch({},{})".format(old_pc, bits)
-        next_state = self.next_pc(old_pc, bits)
-        self.tm.states[(state_name, "0")] = tm.Transition("0", "L", next_state)
-        self.tm.states[(state_name, "1")] = tm.Transition("1", "L", next_state)
-        return state_name
+    def reachable(self):
+        grey = set()
+        black = set()
+        grey.add(self.find_seq("main().0"))
 
-    def next_pc(self, old_pc, bits):
-        if bits == 0:
-            return "pc.next"
-
-        state_name = "next({},{})".format(old_pc & ~1, bits)
-        next_state = self.next_pc(old_pc >> 1, bits - 1)
-        self.tm.states[(state_name, "01"[old_pc & 1])] = tm.Transition("0", "L", next_state)
-
-        return state_name
-
-    def load_framework(self):
-        for lineno, l in enumerate(framework.splitlines()):
-            self.tm.loadline(l, "<framework>", lineno)
+        while grey:
+            i = grey.pop()
+            if i not in black:
+                yield i
+                black.add(i)
+                for v in self.sequences[i].seq:
+                    if isinstance(v, int):
+                        grey.add(v)
 
     def breakout_common_subsequences(self):
 
@@ -233,7 +295,9 @@ class TMBuilder:
         while search_len > 1:
             subsequences = set()
             match = None
-            for s in self.sequences:
+            reachable = [v for v in self.reachable()]
+            for i in reachable:
+                s = self.sequences[i]
                 if len(s.seq) >= search_len:
                     for offset in range(len(s.seq) + 1 - search_len):
                         subseq=s.seq[offset:offset+search_len]
@@ -246,18 +310,18 @@ class TMBuilder:
 
             if match:
                 match_i = self.add_sequence(match)
-                i = 0
-                while i < len(self.sequences):
-                    s = self.sequences[i].seq
-                    if len(s) > search_len:
-                        for offset in range(len(s) + 1 - search_len):
-                            if s[offset:offset+search_len] == match:
-                                self.sequences[i].seq = s[0:offset] + (match_i,) + s[offset+search_len:]
+                for i in reachable:
+                    while True:
+                        s = self.sequences[i].seq
+                        if len(s) > search_len:
+                            for offset in range(len(s) + 1 - search_len):
+                                if s[offset:offset+search_len] == match:
+                                    self.sequences[i].seq = s[0:offset] + (match_i,) + s[offset+search_len:]
+                                    break
+                            else:
                                 break
                         else:
-                            i = i + 1
-                    else:
-                        i = i + 1
+                            break
             else:
                 search_len = search_len - 1
 
@@ -303,23 +367,84 @@ class TMBuilder:
         for i in proposed:
             self.sequences[i].name = proposed[i]
 
+        #ensure all names are unique
+        previous_names = set()
+        dup_names = set()
+        for i in self.reachable():
+            if self.sequences[i].name in previous_names:
+                dup_names.add(self.sequences[i].name)
+            previous_names.add(self.sequences[i].name)
 
+        for i in self.reachable():
+            if self.sequences[i].name in dup_names:
+                self.sequences[i].name += ".n{}".format(i)
+
+    def generate(self):
+
+        def max_zeros(v):
+            if isinstance(v, int):
+                s = self.sequences[v].seq
+                return max(1 + max_zeros(s[0]), max_zeros(s[1]))
+            else:
+                return 0
+
+        max_zeros = 1 + maz_zeros(self.find_seq("main.0"))
+
+        for lineno, l in enumerate(framework.splitlines()):
+            self.tm.loadline(l, "<framework>", lineno)
+
+        for i in range(1, max_zeros + 1):
+            self.tm.states[("2.dispatch.{}".format(i), "0")] = \
+                tm.Transition("0", "L", "2.dispatch.{}".format(i-1))
+            self.tm.states[("2.dispatch.{}".format(i), "1")] = \
+                tm.Transition("1", "L", "2.dispatch.{}".format(i))
+
+        self.tm.states[("5.continue.0", "1")] = \
+            tm.Transition("1", "L", "2.dispatch.{}".format(max_zeros))
+
+        for reg in self.registers.values():
+            if self.tm.states[(reg.inc, "1")].nextstate == "3.reg.0.inc":
+                zero_reg = reg
+
+        self.tm.states[("0.boot1.C", "1")] = tm.Transition("1", "R", reg.inc)
+        self.tm.states[("1.boot2.2", "0")] = tm.Transition("0", "R", reg.inc)
+        self.tm.states[("1.boot2.2", "1")] = tm.Transition("1", "R", reg.decnz)
+
+        # the framework is now ready except for the break and continue states
+        # Generate the decision tree states
+        for seq_i in self.reachable():
+            seq = self.sequences[seq_i]
+            if isinstance(seq.seq[0], int):
+                self.tm.states[(seq.name, "0")] = \
+                    tm.Transition("0", "R", self.sequences[seq.seq[0]].name)
+            elif seq.seq[0].startswith("break."):
+                assert False, "TODO"
+
+        assert False, "TODO"
 
     @subroutine
     def while_decnz(self, var, body):
         if body == ():
-            return [[
-                var.decnz,
-                self.jump_dispatch(0, 1, 1)
-                ]]
-        else:
-            return [[
-                var.decnz,
+            return [
+                self.label(
+                "loop",
                 [
-                    body,
-                    self.jump_dispatch(0, 3, 2)
-                ]
-                ]]
+                    var.decnz,
+                    "continue_loop"
+                ])
+                   ]
+        else:
+            return [
+                self.label(
+                "loop",
+                [
+                    var.decnz,
+                    [
+                        body,
+                        "continue_loop"
+                    ]
+                ])
+                    ]
 
     @subroutine
     def if_decnz(self, var, body):
@@ -332,19 +457,25 @@ class TMBuilder:
     @subroutine
     def if_not_decnz(self, var, body):
         assert body != ()
-        return [[
+        return [
+            self.label(
+            "fn",
             [
-                var.decnz,
-                self.next_dispatch(1, 2)
-            ],
-            body
-            ]]
+                [
+                    var.decnz,
+                    "break_fn"
+                ],
+                body
+            ])
+                ]
 
     @subroutine
     # zeros in1, in2
     def pair(self, out, in1, in2):
         assert out not in (in1, in2)
         return [
+            self.label(
+            "loop",
             [
                 self.while_decnz(in1, [in2.inc, out.inc]),
                 [
@@ -354,10 +485,10 @@ class TMBuilder:
                             out.inc,
                             self.while_decnz(in2, in1.inc),
                         ],
-                        self.jump_dispatch(0,0b111, 3)
+                        "continue_loop"
                     ]
                 ]
-            ]
+            ])
                 ]
 
 
@@ -367,6 +498,8 @@ class TMBuilder:
         assert in1 not in (out1, out2)
 
         return [
+            self.label(
+            "loop",
             [
                 in1.decnz,
                 [
@@ -374,39 +507,43 @@ class TMBuilder:
                     [
                         [
                             out2.decnz,
-                            self.jump_dispatch(0, 0b1101, 4)
+                            "continue_loop"
                         ],
                         [
                             self.while_decnz(out1, out2.inc),
-                            self.jump_dispatch(0, 0b1111, 4)
+                            "continue_loop"
                         ]
                     ]
                 ]
-            ]
+            ])
                ]
 
     @subroutine
     # zeros in1, in2
     def if_eq(self, in1, in2, body):
         return [
+            self.label(
+            "fn",
             [
                 [
+                    self.label(
+                    "loop",
                     [
                         #continue
                         in1.decnz,
                         [
                             [
                                 in2.decnz,
-                                self.jump_dispatch(0,0b101, 3) #goto continue
+                                "continue_loop"
                             ],
                             [
                                 # in1 > in2
                                 # zero in1 and return
                                 self.while_decnz(in1, ()),
-                                self.next_dispatch(0b00111, 5) # skip_inc
+                                "break_fn"
                             ]
                         ]
-                    ],
+                    ]),
                     # if in2 is 0 then the two match
                     [
                         in2.decnz,
@@ -414,13 +551,12 @@ class TMBuilder:
                             # in2 > in1
                             # zero in2 and return
                             self.while_decnz(in2, ()),
-                            self.next_dispatch(0b0111, 4) # skip_inc
+                            "break_fn"
                         ]
                     ],
                 ],
                 body
-            ]
-                #skip_inc
+            ])
                 ]
 
 
