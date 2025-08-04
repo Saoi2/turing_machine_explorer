@@ -24,7 +24,7 @@ class Main(TMBuilder.TMBuilder):
     def pushwff(self):
         return [
             self.pair(self.scratch1, self.topwff, self.wffstack),
-            self.while_dec(self.scratch1, self.wffstack)
+            self.while_decnz(self.scratch1, self.wffstack)
                ]
 
     # v_0 is just pushwff
@@ -63,9 +63,9 @@ class Main(TMBuilder.TMBuilder):
     def cons(self):
         return [
             self.unpair(self.scratch1, self.scratch2, self.wffstack),
-            self.while_dec(self.scratch2, self.wffstack.inc),
+            self.while_decnz(self.scratch2, self.wffstack.inc),
             self.pair(self.scratch2, self.topwff, self.scratch1),
-            self.while_dec(self.scratch2, self.topwff.inc)
+            self.while_decnz(self.scratch2, self.topwff.inc)
                ]
 
     @subroutine
@@ -100,24 +100,24 @@ class Main(TMBuilder.TMBuilder):
     def par1(self):
         return [
             self.pushwff(),
-            self.while_dec(self.param1, [self.topwff.inc, self.scratch1.inc]),
-            self.while_dec(self.scratch1, self.param1.inc)
+            self.while_decnz(self.param1, [self.topwff.inc, self.scratch1.inc]),
+            self.while_decnz(self.scratch1, self.param1.inc)
                ]
 
     @subroutine
     def par2(self):
         return [
             self.pushwff(),
-            self.while_dec(self.param2, [self.topwff.inc, self.scratch1.inc]),
-            self.while_dec(self.scratch1, self.param2.inc)
+            self.while_decnz(self.param2, [self.topwff.inc, self.scratch1.inc]),
+            self.while_decnz(self.scratch1, self.param2.inc)
                ]
 
     @subroutine
     def par3(self):
         return [
             self.pushwff(),
-            self.while_dec(self.param3, [self.topwff.inc, self.scratch1.inc]),
-            self.while_dec(self.scratch1, self.param3.inc)
+            self.while_decnz(self.param3, [self.topwff.inc, self.scratch1.inc]),
+            self.while_decnz(self.scratch1, self.param3.inc)
                ]
 
     # This select function is a little different than in zf2.sql
@@ -129,15 +129,15 @@ class Main(TMBuilder.TMBuilder):
     def select(self):
         return [
             self.unpair(self.scratch1, self.scratch2, self.wffstack),
-            self.while_dec(self.scratch2, self.wffstack.inc),
-            self.if_not_dec(
+            self.while_decnz(self.scratch2, self.wffstack.inc),
+            self.if_not_decnz(
                 self.axiomcode,
                 [
-                    self.while_dec(self.topwff, ()),
-                    self.while_dec(self.scratch1,self.topwff.inc),
+                    self.while_decnz(self.topwff, ()),
+                    self.while_decnz(self.scratch1,self.topwff.inc),
                 ]
             ),
-            self.while_dec(self.scratch1, ())
+            self.while_decnz(self.scratch1, ())
                 ]
 
     @subroutine
@@ -146,10 +146,10 @@ class Main(TMBuilder.TMBuilder):
             [
                 [
                     [
-                        self.axiomcode.dec,
+                        self.axiomcode.decnz,
                         [
                             [
-                                self.axiomcode.dec,
+                                self.axiomcode.decnz,
                                 [
                                     # restore axiomcode
                                     [self.axiomcode.inc, self.axiomcode.inc],
@@ -161,7 +161,7 @@ class Main(TMBuilder.TMBuilder):
                                 [
                                     self.axiomcode.inc, # restore axiomcode
                                     self.unpair(self.scratch1, self.scratch2, self.wffstack),
-                                    self.while_dec(self.scratch2, self.wffstack.inc),
+                                    self.while_decnz(self.scratch2, self.wffstack.inc),
                                 ],
                                 # by putting in a jump here, we can move the
                                 # parameter-dependent part of this subroutine closer to the
@@ -174,8 +174,8 @@ class Main(TMBuilder.TMBuilder):
                 ],
                 # p = scratch1
                 [
-                    self.while_dec(p, ()),
-                    self.while_dec(self.scratch1, p.inc)
+                    self.while_decnz(p, ()),
+                    self.while_decnz(self.scratch1, p.inc)
                 ]
             ]
                ]
@@ -184,10 +184,10 @@ class Main(TMBuilder.TMBuilder):
     def safety(self, p1, p2):
         return [
             # make copies of the parameters
-            self.while_dec(p1, [self.scratch1.inc, self.scratch2.inc]),
-            self.while_dec(self.scratch1, p1.inc),
-            self.while_dec(p2, [self.scratch1.inc, self.scratch3.inc]),
-            self.while_dec(self.scratch1, p2.inc),
+            self.while_decnz(p1, [self.scratch1.inc, self.scratch2.inc]),
+            self.while_decnz(self.scratch1, p1.inc),
+            self.while_decnz(p2, [self.scratch1.inc, self.scratch3.inc]),
+            self.while_decnz(self.scratch1, p2.inc),
             self.if_eq(self.scratch2, self.scratch3, p1.inc)
                 ]
 
@@ -210,28 +210,28 @@ class Main(TMBuilder.TMBuilder):
         select = self.select()
 
         return [
-            self.if_not_dec(self.prooflist, [
-                self.while_dec(self.nextproof, [self.scratch1.inc, self.prooflist.inc]),
-                self.while_dec(self.scratch1, self.nextproof.inc),
+            self.if_not_decnz(self.prooflist, [
+                self.while_decnz(self.nextproof, [self.scratch1.inc, self.prooflist.inc]),
+                self.while_decnz(self.scratch1, self.nextproof.inc),
                 self.nextproof.inc,
                 ]),
 
-            self.while_dec(self.axiomcode, ()),
-            self.while_dec(self.param1, ()),
-            self.while_dec(self.param2, ()),
-            self.while_dec(self.param3, ()),
+            self.while_decnz(self.axiomcode, ()),
+            self.while_decnz(self.param1, ()),
+            self.while_decnz(self.param2, ()),
+            self.while_decnz(self.param3, ()),
             self.unpair(self.scratch1, self.scratch2, self.prooflist),
-            self.while_dec(self.scratch2, self.prooflist.inc),
-            self.while_dec(self.scratch1, self.axiomcode.inc),
+            self.while_decnz(self.scratch2, self.prooflist.inc),
+            self.while_decnz(self.scratch1, self.axiomcode.inc),
             self.unpair(self.scratch1, self.scratch2, self.prooflist),
-            self.while_dec(self.scratch2, self.prooflist.inc),
-            self.while_dec(self.scratch1, self.param1.inc),
+            self.while_decnz(self.scratch2, self.prooflist.inc),
+            self.while_decnz(self.scratch1, self.param1.inc),
             self.unpair(self.scratch1, self.scratch2, self.prooflist),
-            self.while_dec(self.scratch2, self.prooflist.inc),
-            self.while_dec(self.scratch1, self.param2.inc),
+            self.while_decnz(self.scratch2, self.prooflist.inc),
+            self.while_decnz(self.scratch1, self.param2.inc),
             self.unpair(self.scratch1, self.scratch2, self.prooflist),
-            self.while_dec(self.scratch2, self.prooflist.inc),
-            self.while_dec(self.scratch1, self.param3.inc),
+            self.while_decnz(self.scratch2, self.prooflist.inc),
+            self.while_decnz(self.scratch1, self.param3.inc),
 
             # B1
             # no select since if axiomcode = 0 all selects reject the new entry
@@ -301,21 +301,21 @@ class Main(TMBuilder.TMBuilder):
             self.cparam(self.param3),
             # param1 = ps
             par2, par1, wim,
-            self.while_dec(self.topwff, self.scratch2.inc),
-            self.while_dec(self.param3, [self.scratch1.inc, self.scratch3.inc]),
-            self.while_dec(self.scratch1, self.param3.inc),
+            self.while_decnz(self.topwff, self.scratch2.inc),
+            self.while_decnz(self.param3, [self.scratch1.inc, self.scratch3.inc]),
+            self.while_decnz(self.scratch1, self.param3.inc),
             self.if_eq(self.scratch2, self.scratch3, [
-                self.while_dec(self.param1, [self.scratch1.inc, self.topwff.inc]),
-                self.while_dec(self.scratch1, self.param1.inc)
+                self.while_decnz(self.param1, [self.scratch1.inc, self.topwff.inc]),
+                self.while_decnz(self.scratch1, self.param1.inc)
                 ]),
             select,
 
             # check if we've proved the false v_0 e. v_0 wff.
             [
-                self.topwff.dec,
+                self.topwff.decnz,
                 [
                     [
-                        self.topwff.dec,
+                        self.topwff.decnz,
                         [
                             # restore topwff
                             [self.topwff.inc, self.topwff.inc],
