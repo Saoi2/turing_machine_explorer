@@ -3,7 +3,7 @@
 import tm
 
 framework = """
-#! start 0.boot1.A
+#! start 0a.boot1.A
 # Based on the NQL register machine:
 # <https://github.com/sorear/metamath-turing-machines>
 #
@@ -11,13 +11,15 @@ framework = """
 # register machine implemented in a turing machine. States that don't begin
 # with a digit are the decision tree states from the subroutines and main().
 #
-# 1. boot1 isn't quite BB(5) but leaves the tape in a good state for boot2.
+# 0a. boot1
 #
-0.boot1.A 0 1 R 0.boot1.B
-0.boot1.A 1 1 L 0.boot1.C
-0.boot1.B 0 0 L 0.boot1.A
-0.boot1.B 1 0 L 0.boot1.D
-0.boot1.C 0 1 L 0.boot1.A
+# boot1 isn't quite BB(5) but leaves the tape in a good state for boot2.
+#
+0a.boot1.A 0 1 R 0a.boot1.B
+0a.boot1.A 1 1 L 0a.boot1.C
+0a.boot1.B 0 0 L 0a.boot1.A
+0a.boot1.B 1 0 L 0a.boot1.D
+0a.boot1.C 0 1 L 0a.boot1.A
 #
 # At the end of boot1 the tape looks like this:
 # 10101010101010101010101010101010101[1]01111000000000000000000000000000000
@@ -28,111 +30,179 @@ framework = """
 # state we can complete the operation and clean up the tape to a good state
 # to start boot2.
 #
-0.boot1.C 1 1 R [4.register_0_inc]
-0.boot1.D 0 1 L 0.boot1.B
-0.boot1.D 1 1 R 0.boot1.E
-0.boot1.E 0 0 R 0.boot1.D
-0.boot1.E 1 0 R 0.boot1.B
+0a.boot1.C 1 1 R [3.register_0.inc]
+0a.boot1.D 0 1 L 0a.boot1.B
+0a.boot1.D 1 1 R 0a.boot1.E
+0a.boot1.E 0 0 R 0a.boot1.D
+0a.boot1.E 1 0 R 0a.boot1.B
 #
-# 1. In boot2 we are going through dispatch and can use much of the framework
+# 0b. boot2
+#
+# In boot2 we are going through dispatch and can use much of the framework
 # loop to help clean up the PC and initialize the registers.
 # In particular, boot2 relies on a successful decnz adding one
 # register to the register file as a side-effect.
 #
-# At the end of boot2 the PC contains "11", there are 3822 0s between the PC
-# and the register file, and the register file contains 1909 registers plus
-# the -1 marker register.
+# The boot2 decision "tree" works a bit differently from the regular machine.
+# The end of the PC alternates between:
+# ...110 - increment register 0
+# ...111 - decrement register 0
+# boot2 scans right on the PC until encountering one of these two patterns.
 #
-1.boot2.0 1 1 R 1.boot2.1
-1.boot2.1 0 0 R 1.boot2.0
-1.boot2.1 1 1 R 1.boot2.2
-1.boot2.2 0 0 R [4.register_0.inc]
-1.boot2.2 1 1 R [4.register_0.decnz]
+# At the end of the boot2 phase the PC contains "11",
+# there are 3822 0s between the PC and the register file,
+# and the register file contains 1909 registers plus the -1 marker register.
 #
-# 2. The dispatch states handle finding the start of the PC. During the boot2
-# phase the wrong cell is identified as the start of the PC until the last
-# few iterations, but this does not cause any difficulties.
+0b.boot2.0 1 1 R 0b.boot2.1
+0b.boot2.1 0 0 R 0b.boot2.0
+0b.boot2.1 1 1 R 0b.boot2.2
+0b.boot2.2 0 0 R [3.register_0.inc]
+0b.boot2.2 1 1 R [3.register_0.decnz]
 #
-2.dispatch.0 0 0 L 2.dispatch.find.pc
-2.dispatch.0 1 1 L 2.dispatch.0
-2.dispatch.find.pc 0 0 R 2.dispatch.find.pc
-2.dispatch.find.pc 1 1 R 2.root.1
+# 1. 2. 3. Register manipulation
 #
-# 2. The transition of the PC from "101" to "110" initiates the start
-# of the main loop. The rest of the PC is then the decision tree for the main
-# subroutine.
-# Upon overflow to "111" the PC is set back to "110" to start the main loop over.
-# The 2.root* states handle the transitions between these phases.
+# The normal form of the tape is:
 #
-2.root.1 0 0 R 1.boot2.0
-2.root.1 1 1 R 2.root.1.1
-2.root.1.1 0 0 R main().0
-2.root.1.1 1 0 R main().0
+# 11010110010010000000000000001011101010101110101100
+# [ PC        ][ 0s          ]^^[ unary registers ]^
+#                             |                    |
+#                             -1 register          Last register terminated with 00
 #
-# 3. and 4. Register operations go through dispatch twice.
-# In the first phase, the -1 marker register is extended to the left
-# almost to the PC. In the second phase, the register operation is performed,
-# the PC is adjusted, and the -1 marker register is collapsed back to one cell.
-# (This allows the decision tree to take additional cells for the PC if it
-#  wishes in the following dispatch.)
+# The boundry between the PC and the 0s before the register file is
+# implicit in the decision tree. The PC starts with the leftmost 1 on the tape.
 #
-# The states beginning with 4. handle the transition between phase 1 and phase 2
-# of the register operations. Unlike most dispatch states, these states
-# manipulate the last bit of the PC directly.
+# During a register operation the tape is modified as follows:
 #
-3.reg.-1.dec 0 0 R 3.reg.-2.dec
-3.reg.-1.dec 1 1 R 3.reg.-1.dec
-3.reg.-1.inc 0 0 R 3.reg.-2.inc
-3.reg.-1.inc 1 1 R 3.reg.-1.inc
-3.reg.-2.dec 0 1 L 3.reg.return_2_1
-3.reg.-2.dec 1 0 R 3.reg.dec.check
-3.reg.-2.inc 0 1 R 3.reg.inc.shift_1
-3.reg.-2.inc 1 1 R 3.reg.-2.inc
-3.reg.cleanup_1 0 0 R 3.reg.cleanup_1
-3.reg.cleanup_1 1 0 R 3.reg.cleanup_2
-3.reg.cleanup_2 0 0 L 3.reg.cleanup_3
-3.reg.cleanup_2 1 0 R 3.reg.cleanup_2
-3.reg.cleanup_3 0 1 L 2.dispatch
-3.reg.dec.check 0 0 L 3.reg.-2.dec
-3.reg.dec.check 1 1 R 3.reg.dec.scan_1
-3.reg.dec.scan_1 1 1 R 3.reg.dec.scan_1
-3.reg.dec.scan_1 0 0 R 3.reg.dec.scan_2
-3.reg.dec.scan_2 0 0 L 3.reg.dec.shift_1
-3.reg.dec.scan_2 1 1 R 3.reg.dec.scan_1
-3.reg.dec.shift_1 0 1 L 3.reg.dec.shift_2
-3.reg.dec.shift_1 1 1 L 3.reg.dec.shift_1
-3.reg.dec.shift_2 0 0 L 3.reg.return_1_1
-3.reg.dec.shift_2 1 0 L 3.reg.dec.shift_1
-3.reg.inc.shift_1 0 0 L 3.reg.return_1_1
-3.reg.inc.shift_1 1 0 R 3.reg.inc.shift_2
-3.reg.inc.shift_2 0 1 R 3.reg.inc.shift_1
-3.reg.inc.shift_2 1 1 R 3.reg.inc.shift_2
-3.reg.prep_1 0 0 R 3.reg.prep_2
-3.reg.prep_2 0 1 R 3.reg.prep_2
-# Phase 1 of the register operation is over. We've forgotten which register
-# and operation we're performing so go through dispatch again:
-3.reg.prep_2 1 1 L 5.continue.0
-3.reg.return_1_1 0 0 L 3.reg.return_1_2
-3.reg.return_1_1 1 1 L 3.reg.return_1_1
-3.reg.return_1_2 0 0 L 5.break.0
-3.reg.return_1_2 1 1 L 3.reg.return_1_1
-3.reg.return_2_1 0 0 L 3.reg.return_2_2
-3.reg.return_2_1 1 1 L 3.reg.return_2_1
-3.reg.return_2_2 0 0 L 5.break.1
-3.reg.return_2_2 1 1 L 3.reg.return_2_1
+# 1a. A marker is placed at the end of the PC (handled by half of state 3.):
 #
-# 5. PC jump instructions.
+# 11010110010011000000000000001011101010101110101100
+# [ PC        ]^[ 0s         ]^^[ unary registers ]^
+#              |              |                    |
+#              marker         -1 register          Last register terminated with 00
+#
+# 1b. The -1 register is extended to the left almost to the marker:
+#
+# 11010110010011011111111111111011101010101110101100
+# [ PC        ]^ [ -1 register ][ unary registers ]^
+#              |                                   |
+#              marker                              Last register terminated with 00
+#
+# 1c. We go through dispatch again.
+#
+# 2a. The marker is removed from the end of the PC (handled by the other half of state 3.):
+#
+# 11010110010010011111111111111011101010101110101100
+# [ PC        ]^ [ -1 register ][ unary registers ]^
+#              |                                   |
+#              00 before the -1 register           Last register terminated with 00
+#
+# 2b. The sepecific register operation is performed:
+#
+# 110101100100100111111111111110111101010101110101100
+# [ PC        ]^ [ -1 register ][ unary registers  ]^
+#              |                                    |
+#              00 before the -1 register            Last register terminated with 00
+#
+# 2c. The result of the register operation is returned to the PC.
+# 00 before the -1 register marks where the PC ends.
+#
+# 2d. The PC is adusted:
+#
+# 110101100101000111111111111110111101010101110101100
+# [ PC        ]^ [ -1 register ][ unary registers  ]^
+#              |                                    |
+#              00 before the -1 register            Last register terminated with 00
+#
+# 2e. The -1 register is reduced back to a single 1:
+#
+# 110101100101000000000000000010111101010101110101100
+# [ PC        ][ zeros       ]^^[ unary registers  ]^
+#                             |                     |
+#                             -1 register           Last register terminated with 00
+#
+# 2f. We are back in normal form and go back through dispatch to start executing
+# the next instruction. The length of the PC may be longer or shorter for the
+# next operation than for the register operation.
+#
+1b.reg.prep_1 0 0 R 1b.reg.prep_2
+1b.reg.prep_2 0 1 R 1b.reg.prep_2
+1b.reg.prep_2 1 1 L 6.continue.0
+2b.reg.-1.dec 0 0 R 2b.reg.-2.dec
+2b.reg.-1.dec 1 1 R 2b.reg.-1.dec
+2b.reg.-1.inc 0 0 R 2b.reg.-2.inc
+2b.reg.-1.inc 1 1 R 2b.reg.-1.inc
+# 2b.reg.-2.dec does double duty to restore a register and return if a
+# decz fails.
+2b.reg.-2.dec 0 1 L 2c.reg.return_1_1
+2b.reg.-2.dec 1 0 R 2b.reg.dec.check
+2b.reg.-2.inc 0 1 R 2b.reg.inc.shift_1
+2b.reg.-2.inc 1 1 R 2b.reg.-2.inc
+2b.reg.dec.check 0 0 L 2b.reg.-2.dec
+2b.reg.dec.check 1 1 R 2b.reg.dec.scan_1
+2b.reg.dec.scan_1 1 1 R 2b.reg.dec.scan_1
+2b.reg.dec.scan_1 0 0 R 2b.reg.dec.scan_2
+2b.reg.dec.scan_2 0 0 L 2b.reg.dec.shift_1
+2b.reg.dec.scan_2 1 1 R 2b.reg.dec.scan_1
+2b.reg.dec.shift_1 0 1 L 2b.reg.dec.shift_2
+2b.reg.dec.shift_1 1 1 L 2b.reg.dec.shift_1
+2b.reg.dec.shift_2 0 0 L 2c.reg.return_0_1
+2b.reg.dec.shift_2 1 0 L 2b.reg.dec.shift_1
+2b.reg.inc.shift_1 0 0 L 2c.reg.return_0_1
+2b.reg.inc.shift_1 1 0 R 2b.reg.inc.shift_2
+2b.reg.inc.shift_2 0 1 R 2b.reg.inc.shift_1
+2b.reg.inc.shift_2 1 1 R 2b.reg.inc.shift_2
+2c.reg.return_0_1 0 0 L 2c.reg.return_0_2
+2c.reg.return_0_1 1 1 L 2c.reg.return_0_1
+2c.reg.return_0_2 0 0 L 6.break.0
+2c.reg.return_0_2 1 1 L 2c.reg.return_0_1
+2c.reg.return_1_1 0 0 L 2c.reg.return_1_2
+2c.reg.return_1_1 1 1 L 2c.reg.return_1_1
+2c.reg.return_1_2 0 0 L 6.break.1
+2c.reg.return_1_2 1 1 L 2c.reg.return_1_1
+2e.reg.cleanup_1 0 0 R 2e.reg.cleanup_1
+2e.reg.cleanup_1 1 0 R 2e.reg.cleanup_2
+2e.reg.cleanup_2 0 0 L 2e.reg.cleanup_3
+2e.reg.cleanup_2 1 0 R 2e.reg.cleanup_2
+2e.reg.cleanup_3 0 1 L 6.continue.0
+#
+# 4. dispatch
+#
+# Find the start of the PC. We pass by a set number of 0 cells going
+# left (how many depends on the decision tree), then scan right for the
+# first 1 cell.
+#
+4.dispatch.0 0 0 L 4.dispatch.scan
+4.dispatch.0 1 1 L 4.dispatch.0
+4.dispatch.scan 0 0 R 4.dispatch.scan
+4.dispatch.scan 1 1 R 5.root.1
+#
+# 5. The root of the PC decision tree:
+# 10 - in boot2 phase
+# 110 - in main subroutine
+# 111 - main subroutine has completed. (Loop back to 110)
+#
+# In the boot2 phase we may be at a false root, but due to the
+# way boot2 works this doesn't cause problems.
+#
+5.root.1 0 0 R 0b.boot2.0
+5.root.1 1 1 R 5.root.1.1
+5.root.1.1 0 0 R main().0
+5.root.1.1 1 0 R main().0
+#
+#
+# 6. PC jump instructions.
 #
 # We don't know if we got to break.0 from phase two of a register instruction
 # or not. Tranisition to the reg -1 cleanup state unconditionally. If we're
 # not transitioning from a register operation this cleanup won't do anything
 # and we'll end up back in dispatch regardless.
-5.break.0 0 1 R 3.reg.cleanup_1
-5.break.0 1 0 L 5.break.0
-5.break.1 0 0 L break.0
-5.break.1 1 0 L break.1
-5.continue.0 0 0 L 5.continue.0
-5.continue.0 1 1 L [largest_2.dispatch]
+#
+6.break.0 0 1 R 2e.reg.cleanup_1
+6.break.0 1 0 L 6.break.0
+6.break.1 0 0 L 6.break.0
+6.break.1 1 0 L 6.break.1
+6.continue.0 0 0 L 6.continue.0
+6.continue.0 1 1 L [largest_4.dispatch]
 """
 
 
@@ -140,15 +210,15 @@ framework = """
 class Register(str):
     @property
     def inc(self):
-        return "4." + self + ".inc"
+        return "3." + self + ".inc"
 
     @property
     def dec(self):
-        return "4." + self + ".dec"
+        return "3." + self + ".dec"
 
     @property
     def decnz(self):
-        return "4." + self + ".decnz"
+        return "3." + self + ".decnz"
 
 class Sequence():
     def __init__(self, seq):
@@ -199,26 +269,26 @@ class TMBuilder:
     def reg(self, name):
         if name not in self.registers:
             reg = Register(name)
-            self.tm.states[("3..reg.{}.inc".format(self.nextreg), "0")] = \
-                tm.Transition("0", "R", "3.reg.{}.inc".format(self.nextreg - 1))
-            self.tm.states[("reg.{}.inc".format(self.nextreg), "1")] = \
-                tm.Transition("1", "R", "3.reg.{}.inc".format(self.nextreg))
-            self.tm.states[("reg.{}.dec".format(self.nextreg), "0")] = \
-                tm.Transition("0", "R", "3.reg.{}.dec".format(self.nextreg - 1))
-            self.tm.states[("reg.{}.dec".format(self.nextreg), "1")] = \
-                tm.Transition("1", "R", "3.reg.{}.dec".format(self.nextreg))
+            self.tm.states[("2b.reg.{}.inc".format(self.nextreg), "0")] = \
+                tm.Transition("0", "R", "2b.reg.{}.inc".format(self.nextreg - 1))
+            self.tm.states[("2b.reg.{}.inc".format(self.nextreg), "1")] = \
+                tm.Transition("1", "R", "2b.reg.{}.inc".format(self.nextreg))
+            self.tm.states[("2b.reg.{}.dec".format(self.nextreg), "0")] = \
+                tm.Transition("0", "R", "2b.reg.{}.dec".format(self.nextreg - 1))
+            self.tm.states[("2b.reg.{}.dec".format(self.nextreg), "1")] = \
+                tm.Transition("1", "R", "2b.reg.{}.dec".format(self.nextreg))
             self.tm.states[(reg.inc, "0")] = \
-                tm.Transition("1", "R", "reg.prep_1")
+                tm.Transition("1", "R", "1b.reg.prep_1")
             self.tm.states[(reg.inc, "1")] = \
-                tm.Transition("0", "R", "reg.{}.inc".format(self.nextreg))
+                tm.Transition("0", "R", "2b.reg.{}.inc".format(self.nextreg))
             self.tm.states[(reg.decnz, "0")] = \
-                tm.Transition("1", "R", "reg.prep_1")
+                tm.Transition("1", "R", "1b.reg.prep_1")
             self.tm.states[(reg.decnz, "1")] = \
-                tm.Transition("0", "R", "reg.{}.dec".format(self.nextreg))
+                tm.Transition("0", "R", "2b.reg.{}.dec".format(self.nextreg))
             self.tm.states[(reg.dec, "0")] = \
                 tm.Transition("0", "R", reg.decnz)
             self.tm.states[(reg.dec, "1")] = \
-                tm.Transition("0", "L", "5.break.0")
+                tm.Transition("0", "L", "6.break.0")
             self.nextreg = self.nextreg + 1
             self.registers[name] = reg
         return self.registers[name]
@@ -253,24 +323,43 @@ class TMBuilder:
     def label(self, name, seq, zeros=0, ones=0):
         control_flow = ("break_" + name, "continue_" + name)
 
+        def contains_reference(name, seq):
+            for entry in seq:
+                if entry in control_flow:
+                    return True
+                if isinstance(entry, int) and name in self.sequences[entry].unresolved_labels:
+                    return True
+                if isinstance(entry, tuple) or isinstance(entry, list):
+                    if contains_reference(name, entry):
+                        return True
+            return False
+
         def resolve_entry(zeros, ones, val):
             if val in control_flow:
                 if val == "break_" + name:
-                    return "5.break.{}".format(zeros)
+                    return "_break.{}".format(zeros)
                 else:
-                    return "5.continue.{}".format(ones)
+                    return "_continue.{}".format(ones)
             if isinstance(val, int) and name in self.sequences[val].unresolved_labels:
-                return self.label(name, self.sequences[val].seq, zeros, ones)
+                rv=self.add_sequence(self.label(name, self.sequences[val].seq, zeros, ones))
+                # transfer the sequence name over to the new sequence
+                self.sequences[rv].name = self_sequences[val].name
+                return rv
+            if isinstance(val, tuple) or isinstance(val, list):
+                return self.label(name, val, zeros, ones)
             return val
 
+        if not contains_reference(name, seq):
+            return seq
+
         if len(seq) == 2:
-            return self.add_sequence((resolve_entry(zeros + 1, ones, seq[0]),
-                                      resolve_entry(zeros, ones + 1, seq[1])))
+            return (resolve_entry(zeros + 1, ones, seq[0]),
+                    resolve_entry(zeros, ones + 1, seq[1]))
 
         assert False, "unimplemented"
 
     def find_seq(self, name):
-        for i in range(len.self.sequences):
+        for i in range(len(self.sequences)):
             if self.sequences[i].name == name:
                 return i
 
@@ -388,39 +477,87 @@ class TMBuilder:
             else:
                 return 0
 
-        max_zeros = 1 + maz_zeros(self.find_seq("main.0"))
+        def generate_break(level):
+            while level > 0:
+                self.tm.states[(f"6.break.{level}", "0")] = \
+                    tm.Transition("0", "L", f"6.break.{level - 1}")
+                self.tm.states[(f"6.break.{level}", "1")] = \
+                    tm.Transition("0", "L", f"6.break.{level}")
+                level -= 1
+
+        def generate_continue(level):
+            while level > 0:
+                self.tm.states[(f"6.continue.{level}", "0")] = \
+                    tm.Transition("0", "L", f"6.continue.{level}")
+                self.tm.states[(f"6.continue.{level}", "1")] = \
+                    tm.Transition("0", "L", f"6.continue.{level - 1}")
+                level -= 1
+
+        max_zeros = 1 + max_zeros(self.find_seq("main.0"))
 
         for lineno, l in enumerate(framework.splitlines()):
             self.tm.loadline(l, "<framework>", lineno)
 
         for i in range(1, max_zeros + 1):
-            self.tm.states[("2.dispatch.{}".format(i), "0")] = \
-                tm.Transition("0", "L", "2.dispatch.{}".format(i-1))
-            self.tm.states[("2.dispatch.{}".format(i), "1")] = \
-                tm.Transition("1", "L", "2.dispatch.{}".format(i))
+            self.tm.states[("4.dispatch.{}".format(i), "0")] = \
+                tm.Transition("0", "L", f"4.dispatch.{i-1}")
+            self.tm.states[("4.dispatch.{}".format(i), "1")] = \
+                tm.Transition("1", "L", f"4.dispatch.{i}")
 
-        self.tm.states[("5.continue.0", "1")] = \
-            tm.Transition("1", "L", "2.dispatch.{}".format(max_zeros))
+        self.tm.states[("6.continue.0", "1")] = \
+            tm.Transition("1", "L", f"4.dispatch.{max_zeros}")
 
         for reg in self.registers.values():
             if self.tm.states[(reg.inc, "1")].nextstate == "3.reg.0.inc":
                 zero_reg = reg
 
-        self.tm.states[("0.boot1.C", "1")] = tm.Transition("1", "R", reg.inc)
-        self.tm.states[("1.boot2.2", "0")] = tm.Transition("0", "R", reg.inc)
-        self.tm.states[("1.boot2.2", "1")] = tm.Transition("1", "R", reg.decnz)
+        self.tm.states[("0a.boot1.C", "1")] = tm.Transition("1", "R", reg.inc)
+        self.tm.states[("0b.boot2.2", "0")] = tm.Transition("0", "R", reg.inc)
+        self.tm.states[("0b.boot2.2", "1")] = tm.Transition("1", "R", reg.decnz)
 
         # the framework is now ready except for the break and continue states
-        # Generate the decision tree states
+        # Generate the decision tree states and the needed framework states.
         for seq_i in self.reachable():
             seq = self.sequences[seq_i]
             if isinstance(seq.seq[0], int):
                 self.tm.states[(seq.name, "0")] = \
                     tm.Transition("0", "R", self.sequences[seq.seq[0]].name)
-            elif seq.seq[0].startswith("break."):
-                assert False, "TODO"
+            elif seq.seq[0].startswith("_break."):
+                if seq.seq[0] == "_break.0":
+                    self.tm.states[(seq.name, "0")] = \
+                        tm.Transition("1", "L", "6.continue.0")
+                else:
+                    break_i = int(seq.seq[0].split(".")[1]) - 1
+                    self.tm.states[(seq.name, "0")] = \
+                        tm.Transition("0", "L", f"6.break.{break_i}")
+                    generate_break(break_i)
+            elif seq.seq[0].startswith("_continue."):
+                continue_i = int(seq.seq[0].split(".")[1])
+                self.tm.states[(seq.name, "0")] = \
+                    tm.Transition("0", "L", f"6.continue.{continue_i}")
+                generate_continue(continue_i)
+            else:
+                self.tm.states[(seq.name, "0")] = \
+                     tm.Transition("0", "L", seq.seq[0])
 
-        assert False, "TODO"
+            if isinstance(seq.seq[1], int):
+                self.tm.states[(seq.name, "1")] = \
+                    tm.Transition("1", "R", self.sequences[seq.seq[1]].name)
+            elif seq.seq[1].startswith("_break."):
+                break_i = int(seq.seq[1].split(".")[1])
+                self.tm.states[(seq.name, "1")] = \
+                    tm.Transition("0", "L", f"6.break.{break_i}")
+                generate_break(break_i)
+            elif seq.seq[1].startswith("_continue."):
+                continue_i = int(seq.seq[1].split(".")[1]) - 1
+                assert continue_i >= 0 # otherwise we've somehow generated an infinite loop
+                self.tm.states[(seq.name, "1")] = \
+                    tm.Transition("0", "L", f"6.continue.{continue_i}")
+                generate_continue(continue_i)
+            else:
+                self.tm.states[(seq.name, "1")] = \
+                    tm.Transition("1", "R", seq.seq[1])
+
 
     @subroutine
     def while_decnz(self, var, body):

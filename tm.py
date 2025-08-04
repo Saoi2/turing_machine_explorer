@@ -105,7 +105,7 @@ class TuringMachine:
                         lineno = lineno - 1
                     while self.source[(filename, lineno)].startswith("#"):
                         if not self.source[(filename, lineno)].startswith("#!"):
-                            f.write("{}\n", self.source[(filename, lineno)])
+                            f.write("{}\n".format(self.source[(filename, lineno)]))
                         lineno = lineno + 1
                 f.write("{} {} {} {} {}\n".format(*statetuple, *self.states[statetuple][:3]))
 
@@ -143,3 +143,26 @@ class TuringMachine:
             self.statetrace = [(self.statename, self.symbol, 1)] + self.statetrace[:10]
 
         return True
+
+    def gc(self):
+        """ Returns a list of garbage-collected states"""
+
+        rv = []
+        grey = set([self.start, self.statename])
+        black = set()
+
+        while grey:
+            state = grey.pop()
+            if state not in black:
+                black.add(state)
+                for symbol in self.symbols:
+                    if (state, symbol) in self.states:
+                        grey.add(self.states[(state, symbol)].nextstate)
+
+        rv = [item for item in self.states.items() if item[0][0] not in black]
+
+        for item in rv:
+            del self.states[item[0]]
+
+        return rv
+
