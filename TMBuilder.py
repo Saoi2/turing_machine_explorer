@@ -494,12 +494,12 @@ class TMBuilder:
                     tm.Transition("0", "L", f"6.continue.{level - 1}")
                 level -= 1
 
-        max_zeros = max(1 + max_zeros(self.find_seq("main().0")), 2)
+        max_zeros = max(2 + max_zeros(self.find_seq("main().0")), 2)
 
         for lineno, l in enumerate(framework.splitlines()):
             self.tm.loadline(l, "<framework>", lineno)
 
-        for i in range(1, max_zeros + 2):
+        for i in range(1, max_zeros + 1):
             self.tm.states[("4.dispatch.{}".format(i), "0")] = \
                 tm.Transition("0", "L", f"4.dispatch.{i-1}")
             self.tm.states[("4.dispatch.{}".format(i), "1")] = \

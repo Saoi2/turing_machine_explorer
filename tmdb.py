@@ -158,6 +158,11 @@ class TMDB:
         if cmd[0] in ("b", "break"):
             if len(cmd) == 2:
                 self.breakpoints.add(cmd[1])
+                for symbol in self.tm.symbols:
+                    if (cmd[1], symbol) in self.tm.states:
+                        break
+                else:
+                    print(f"warning: {cmd[1]} is not one of the tm states")
             else:
                 self.breakpoints.add(self.tm.statename)
             return False
