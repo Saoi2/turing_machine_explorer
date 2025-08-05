@@ -1,6 +1,7 @@
 #!/usr/bin/python3
 
 import tm
+import tmdb
 
 framework = """
 #! start 0a.boot1.A
@@ -493,7 +494,7 @@ class TMBuilder:
                     tm.Transition("0", "L", f"6.continue.{level - 1}")
                 level -= 1
 
-        max_zeros = 1 + max_zeros(self.find_seq("main.0"))
+        max_zeros = max(1 + max_zeros(self.find_seq("main().0")), 2)
 
         for lineno, l in enumerate(framework.splitlines()):
             self.tm.loadline(l, "<framework>", lineno)
@@ -508,12 +509,12 @@ class TMBuilder:
             tm.Transition("1", "L", f"4.dispatch.{max_zeros}")
 
         for reg in self.registers.values():
-            if self.tm.states[(reg.inc, "1")].nextstate == "3.reg.0.inc":
+            if self.tm.states[(reg.inc, "1")].nextstate == "2b.reg.0.inc":
                 zero_reg = reg
 
-        self.tm.states[("0a.boot1.C", "1")] = tm.Transition("1", "R", reg.inc)
-        self.tm.states[("0b.boot2.2", "0")] = tm.Transition("0", "R", reg.inc)
-        self.tm.states[("0b.boot2.2", "1")] = tm.Transition("1", "R", reg.decnz)
+        self.tm.states[("0a.boot1.C", "1")] = tm.Transition("1", "R", zero_reg.inc)
+        self.tm.states[("0b.boot2.2", "0")] = tm.Transition("0", "R", zero_reg.inc)
+        self.tm.states[("0b.boot2.2", "1")] = tm.Transition("1", "R", zero_reg.decnz)
 
         # the framework is now ready except for the break and continue states
         # Generate the decision tree states and the needed framework states.
@@ -538,7 +539,7 @@ class TMBuilder:
                 generate_continue(continue_i)
             else:
                 self.tm.states[(seq.name, "0")] = \
-                     tm.Transition("0", "L", seq.seq[0])
+                     tm.Transition("0", "R", seq.seq[0])
 
             if isinstance(seq.seq[1], int):
                 self.tm.states[(seq.name, "1")] = \
@@ -558,6 +559,21 @@ class TMBuilder:
                 self.tm.states[(seq.name, "1")] = \
                     tm.Transition("1", "R", seq.seq[1])
 
+    def build_machine(self):
+        self.main()
+        self.breakout_common_subsequences()
+        self.reduce_to_cons()
+        self.name_sequences()
+        self.generate()
+        self.tm.gc()
+        self.tm.statename = self.tm.start
+
+
+    def process_cmdline(self):
+        self.build_machine()
+        debugger = tmdb.TMDB()
+        debugger.tm = self.tm
+        debugger.mainloop()
 
     @subroutine
     def while_decnz(self, var, body):

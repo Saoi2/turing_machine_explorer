@@ -128,7 +128,7 @@ class TMDB:
                     statename = cmd[1].split(",")[0] # range is unsupported we just use the start
                     for symbol in reversed(sorted(self.tm.symbols)):
                         if (statename, symbol) in self.tm.sourcemap:
-                            filename, lineno = self.tm.sourcemap[(self.tm.statename, self.tm.symbol)]
+                            filename, lineno = self.tm.sourcemap[(statename, symbol)]
                 elif cmd[1].split(":")[1].isnumeric():
                     filename = cmd[1].split(":")[0]
                     lineno = cmd[1].split(":")[1]

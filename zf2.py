@@ -1,9 +1,9 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 
 import TMBuilder
 from TMBuilder import subroutine
 
-class Main(TMBuilder.TMBuilder):
+class ZF2(TMBuilder.TMBuilder):
 
     def __init__(self):
         super().__init__()
@@ -24,7 +24,7 @@ class Main(TMBuilder.TMBuilder):
     def pushwff(self):
         return [
             self.pair(self.scratch1, self.topwff, self.wffstack),
-            self.while_decnz(self.scratch1, self.wffstack)
+            self.while_decnz(self.scratch1, self.wffstack.inc)
                ]
 
     # v_0 is just pushwff
@@ -335,3 +335,6 @@ class Main(TMBuilder.TMBuilder):
                 ])
             ]
                ]
+
+if __name__ == "__main__":
+    ZF2().process_cmdline()

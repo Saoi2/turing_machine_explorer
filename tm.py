@@ -165,4 +165,3 @@ class TuringMachine:
             del self.states[item[0]]
 
         return rv
-
