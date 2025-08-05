@@ -499,7 +499,7 @@ class TMBuilder:
         for lineno, l in enumerate(framework.splitlines()):
             self.tm.loadline(l, "<framework>", lineno)
 
-        for i in range(1, max_zeros + 1):
+        for i in range(1, max_zeros + 2):
             self.tm.states[("4.dispatch.{}".format(i), "0")] = \
                 tm.Transition("0", "L", f"4.dispatch.{i-1}")
             self.tm.states[("4.dispatch.{}".format(i), "1")] = \
