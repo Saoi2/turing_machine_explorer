@@ -54,6 +54,9 @@ framework = """
 # there are 3822 0s between the PC and the register file,
 # and the register file contains 1909 registers plus the -1 marker register.
 #
+# 0b.boot2.0 0 is not used by the boot2 process so we take advantage of this
+# half state for 2e register operations.
+0b.boot2.0 0 1 L 6.continue.0
 0b.boot2.0 1 1 R 0b.boot2.1
 0b.boot2.1 0 0 R 0b.boot2.0
 0b.boot2.1 1 1 R 0b.boot2.2
@@ -140,8 +143,8 @@ framework = """
 2b.reg.-2.inc 1 1 R 2b.reg.-2.inc
 2b.reg.dec.check 0 0 L 2b.reg.-2.dec
 2b.reg.dec.check 1 1 R 2b.reg.dec.scan_1
-2b.reg.dec.scan_1 1 1 R 2b.reg.dec.scan_1
 2b.reg.dec.scan_1 0 0 R 2b.reg.dec.scan_2
+2b.reg.dec.scan_1 1 1 R 2b.reg.dec.scan_1
 2b.reg.dec.scan_2 0 0 L 2b.reg.dec.shift_1
 2b.reg.dec.scan_2 1 1 R 2b.reg.dec.scan_1
 2b.reg.dec.shift_1 0 1 L 2b.reg.dec.shift_2
@@ -162,9 +165,10 @@ framework = """
 2c.reg.return_1_2 1 1 L 2c.reg.return_1_1
 2e.reg.cleanup_1 0 0 R 2e.reg.cleanup_1
 2e.reg.cleanup_1 1 0 R 2e.reg.cleanup_2
-2e.reg.cleanup_2 0 0 L 2e.reg.cleanup_3
+# We use the otherwise unused 0 slot of 0b.boot2.0 to restore the -1
+# register and return to dispatch
+2e.reg.cleanup_2 0 0 L 0b.boot2.0
 2e.reg.cleanup_2 1 0 R 2e.reg.cleanup_2
-2e.reg.cleanup_3 0 1 L 6.continue.0
 #
 # 4. dispatch
 #
@@ -427,32 +431,51 @@ class TMBuilder:
             i = i + 1
 
     def name_sequences(self):
+        """Infill node names based on branching patterns from supplied node names (from subroutine names)
+
+        These will become state names."""
+
         proposed = {i: self.sequences[i].name for i in range(len(self.sequences))
                     if self.sequences[i].name is not None}
-        for _ in range(len(self.sequences)):
+        changed = True
+        while changed:
+            changed = False
             for i in range(len(self.sequences)):
                 try:
                     name = proposed[i]
                 except KeyError:
                     continue
-                car, cdr = self.sequences[i].seq
-                car_name = name + ".0"
-                if isinstance(car, int):
-                    if car not in proposed or proposed[car] == car_name:
-                        proposed[car] = car_name
-                    elif self.sequences[car].name is None:
-                        proposed[car] = "node_{}.0".format(car)
-
-                if isinstance(cdr, int):
-                    if "." in name and name.rsplit(".", maxsplit=1)[1].isnumeric():
-                        cdr_name = name.rsplit(".", maxsplit=1)[0] + "." + \
-                            str(int(name.rsplit(".", maxsplit=1)[1]) + 1)
+                for branch, node in enumerate(self.sequences[i].seq):
+                    if branch == 0:
+                        node_name = name + ".0"
                     else:
-                        cdr_name = "node_{}.0".format(cdr)
-                    if cdr not in proposed or proposed[cdr] == cdr_name:
-                        proposed[cdr] = cdr_name
-                    elif self.sequences[cdr].name is None:
-                        proposed[cdr] = "node_{}.0".format(cdr)
+                        node_name = name.rsplit(".", maxsplit=1)[0] + "." + \
+                            str(int(name.rsplit(".", maxsplit=1)[1]) + 1)
+
+                    if isinstance(node, int) and self.sequences[node].name is None:
+                        if node not in proposed:
+                            proposed[node] = node_name
+                            changed = True
+                        elif node_name != proposed[node]:
+                            if node_name.split("(")[0] == proposed[node].split("(")[0]:
+                                # we can keep the subroutine name to provide some context
+                                if ").n_" in node_name and not ").n_" in proposed[node]:
+                                    proposed[node] = node_name
+                                    changed = True
+                                else:
+                                    node_name = node_name.split("(")[0] + f"().n_{node}.0"
+                                    if node_name != proposed[node]:
+                                        proposed[node] = node_name
+                                        changed = True
+                            elif node_name.startswith("node_") and not proposed[node].startswith("node_"):
+                                proposed[node] = node_name
+                                changed = True
+                            else:
+                                node_name = f"n_{node}.0"
+                                if node_name != proposed[node]:
+                                    proposed[node] = node_name
+                                    changed = True
+
 
         for i in proposed:
             self.sequences[i].name = proposed[i]
@@ -467,7 +490,7 @@ class TMBuilder:
 
         for i in self.reachable():
             if self.sequences[i].name in dup_names:
-                self.sequences[i].name += ".n{}".format(i)
+                self.sequences[i].name += f".n{i}"
 
     def generate(self):
 
