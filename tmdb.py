@@ -73,6 +73,7 @@ class TMDB:
             self.tm.right = []
             self.tm.symbol = self.tm.fill
             self.tm.statename = self.tm.start
+            self.tm.stepcount = 0
             return True
 
         if cmd[0] in ("run",):
@@ -179,7 +180,7 @@ class TMDB:
                         print("{} {}: {}".format(filename, lineno, self.tm.source[(filename, lineno)]))
                     else:
                         print(bp)
-            if cmd[1] in ("registers"):
+            if cmd[1] in ("registers", "tape"):
                 i = -len(self.tm.left)
                 current_cells = []
                 while i <= len(self.tm.right):
@@ -250,15 +251,16 @@ class TMDB:
                     print("{} {} {} {} {}".format(self.tm.statename, self.tm.symbol,
                         *self.tm.states[(self.tm.statename, self.tm.symbol)]))
                     if self.tm.statename in self.breakpoints:
-                        print("Breakpoint")
+                        print(f"Breakpoint (transitions: {self.tm.stepcount})")
                     elif self.tm.looping:
                         print("looping detected")
 
                 else:
                     if self.tm.statename == "HLT":
-                        print("HALTED")
+                        print(f"HALTED (transitions: {self.tm.stepcount})")
                     else:
-                        print("Undefined transition: {} {}".format(self.tm.statename, self.tm.symbol))
+                        print("Undefined transition: {} {} (transitions: {}"
+                              .format(self.tm.statename, self.tm.symbol, self.tm.stepcount))
 
 
 import argparse

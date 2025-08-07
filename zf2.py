@@ -4,6 +4,11 @@ import TMBuilder
 from TMBuilder import subroutine
 
 class ZF2(TMBuilder.TMBuilder):
+    """
+This program halts if it finds an inconsistency in ZF.
+It is a port of <https://github.com/CatsAreFluffy/metamath-turing-machines/blob/master/zf2.nql>
+
+    """
 
     def __init__(self):
         super().__init__()
@@ -120,9 +125,9 @@ class ZF2(TMBuilder.TMBuilder):
             self.while_decnz(self.scratch1, self.param3.inc)
                ]
 
-    # This select function is a little different than in zf2.sql
+    # This select function is a little different than in zf2.nql
     # The difference is that the unpair function here doesn't zero out1, out2
-    # first. So we use a scratch variable that is always kept zero.
+    # first. So we use scratch variables that are always kept zero.
     # But this means we need to make sure the scratch variables are reset
     # to zero at the end.
     @subroutine
@@ -285,7 +290,7 @@ class ZF2(TMBuilder.TMBuilder):
             v_2, v_2, v_1, wel, par1, wa, wex, wim, wal, wim, wal, wa, wex,
             select,
 
-            # BG6a
+            # B6a
             self.safety(self.param1, self.param3),
             self.safety(self.param2, self.param3),
             par1, par2, weq, par3, par1, par2, weq, wal, wim,

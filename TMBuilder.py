@@ -594,6 +594,10 @@ class TMBuilder:
 
     def process_cmdline(self):
         self.build_machine()
+        print("states count:")
+        print("framework:    {}".format(len(set(state[0] for state in self.tm.states if state[0][0] in "0123456789"))))
+        print("decision DAG: {}".format(len(set(state[0] for state in self.tm.states if state[0][0] not in "0123456789"))))
+        print("total:        {}".format(len(set(state[0] for state in self.tm.states))))
         debugger = tmdb.TMDB()
         debugger.tm = self.tm
         debugger.mainloop()

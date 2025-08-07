@@ -142,6 +142,7 @@ class TuringMachine:
         else:
             self.statetrace = [(self.statename, self.symbol, 1)] + self.statetrace[:10]
 
+        self.stepcount += 1
         return True
 
     def gc(self):
