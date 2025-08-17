@@ -10,7 +10,7 @@ Turing machine debugger, loosly based on gdb and pydb.
 
 Produces a Turning machine with 385 states that halts if it finds an
 inconsistency in ZF2. This is a port of zf2.nql in
-<https://github.com/sorear/metamath-turing-machines> to a python list based
+<https://github.com/CatsAreFluffy/metamath-turing-machines> to a python list based
 intermediate representation. This is in turn compiled to a slightly different
 register machine than used by NQL.
 

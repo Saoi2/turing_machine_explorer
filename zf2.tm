@@ -2,7 +2,7 @@
 # Based on the NQL register machine:
 # <https://github.com/sorear/metamath-turing-machines>
 #
-# States that being with a digit are the states for the framework of the
+# States that begin with a digit are the states for the framework of the
 # register machine implemented in a turing machine. States that don't begin
 # with a digit are the decision tree states from the subroutines and main().
 #
@@ -104,7 +104,7 @@
 # 2c. The result of the register operation is returned to the PC.
 # 00 before the -1 register marks where the PC ends.
 #
-# 2d. The PC is adusted:
+# 2d. The PC is adjusted:
 #
 # 110101100101000111111111111110111101010101110101100
 # [ PC        ]^ [ -1 register ][ unary registers  ]^
@@ -120,7 +120,7 @@
 #
 # 2f. We are back in normal form and go back through dispatch to start executing
 # the next instruction. The length of the PC may be longer or shorter for the
-# next operation than for the register operation.
+# next operation than it was for the register operation.
 #
 1b.reg.prep_1 0 0 R 1b.reg.prep_2
 1b.reg.prep_2 0 1 R 1b.reg.prep_2
@@ -130,7 +130,7 @@
 2b.reg.-1.inc 0 0 R 2b.reg.-2.inc
 2b.reg.-1.inc 1 1 R 2b.reg.-1.inc
 # 2b.reg.-2.dec does double duty to restore a register and return if a
-# decz fails.
+# decnz fails.
 2b.reg.-2.dec 0 1 L 2c.reg.return_1_1
 2b.reg.-2.dec 1 0 R 2b.reg.dec.check
 2b.reg.-2.inc 0 1 R 2b.reg.inc.shift_1
