@@ -20,8 +20,8 @@ register machine than used by NQL.
 $./zf2.py
 states count:
 framework:    96
-decision DAG: 289
-total:        385
+decision DAG: 285
+total:        381
 (tmdb) save zf2.tm
 (tmdb) q
 ```

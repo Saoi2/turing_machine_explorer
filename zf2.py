@@ -260,6 +260,9 @@ It is a port of <https://github.com/CatsAreFluffy/metamath-turing-machines/blob/
             # B6b
             par1, par2, par3, wal, wal, par2, par1, par3, wal, wal, wim, select,
 
+            # B8b
+            par1, par2, weq, par1, par3, wel, par2, par3, wel, wim, wim, select,
+
             # B6c
             par1, par1, par2, wal, wex, par1, par2, wal, wim, select,
 
@@ -276,25 +279,26 @@ It is a port of <https://github.com/CatsAreFluffy/metamath-turing-machines/blob/
 
             # POW
             # E. y A. z ( A. y ( y e. z -> y e. x ) -> z e. y )
-            v_1, v_2, v_1, v_1, v_2, wel, v_1, v_0, wel, wim, wal, v_2, v_1, wel, wim, wal, wex, select,
+            par2, par3, par2, par2, par3, wel, par2, par1, wel, wim, wal, par3, par2, wel, wim, wal, wex, select,
 
             # UNI
             # E. y A. z ( E. y ( z e. y /\ y e. x ) -> z e. y )
-            v_1, v_2, v_1, v_2, v_1, wel, v_1, v_0, wel, wa, wex, v_2, v_1, wel, wim, wal, wex, select,
+            par2, par3, par2, par3, par2, wel, par2, par1, wel, wa, wex, par3, par2, wel, wim, wal, wex, select,
 
             # INF+COl+SEP
             # E. y ( A. z (( z e. x -> ( E. x A. y P -> z e. y ) ) /\ ( z e. y -> E. x P ) ) /\ A. x ( x e. y -> A. z  ( A. y P -> E. z ( z e. y /\ P ) ) ) )
-            v_1, v_2, v_2, v_0, wel, v_0, v_1, par1, wal, wex, v_2, v_1, wel, wim, wim,
-            v_2, v_1, wel, v_0, par1, wex, wim, wa,
-            wal, v_0, v_0, v_1, wel, v_2, v_1, par1, wal,
-            v_2, v_2, v_1, wel, par1, wa, wex, wim, wal, wim, wal, wa, wex,
+            par2, par3, par3, par1, wel, par1, par2, par1, wal, wex, par3, par2, wel, wim, wim,
+            par3, par2, wel, par1, par1, wex, wim, wa,
+            wal, par1, par1, par2, wel, par3, par2, par1, wal,
+            par3, par3, par2, wel, par1, wa, wex, wim, wal, wim, wal, wa, wex,
             select,
 
-            # B6a
             self.safety(self.param1, self.param3),
             self.safety(self.param2, self.param3),
+            # B6a1
             par1, par2, weq, par3, par1, par2, weq, wal, wim,
             select,
+            # B6a2
             par1, par2, wel, par3, par1, par2, wel, wal, wim,
             select,
 
@@ -303,7 +307,6 @@ It is a port of <https://github.com/CatsAreFluffy/metamath-turing-machines/blob/
             self.cparam(self.param2),
             par1, par2, wal, select,
 
-
             # DET
             # ph
             self.cparam(self.param2),
@@ -311,10 +314,14 @@ It is a port of <https://github.com/CatsAreFluffy/metamath-turing-machines/blob/
             self.cparam(self.param3),
             # param1 = ps
             par2, par1, wim,
+            # we've build ph->ps in topwff, move it to scratch2,
+            # leaving topwff as the |v_0 = v_0| wff.
             self.while_decnz(self.topwff, self.scratch2.inc),
+            # let scratch3 = param3
             self.while_decnz(self.param3, [self.scratch1.inc, self.scratch3.inc]),
             self.while_decnz(self.scratch1, self.param3.inc),
             self.if_eq(self.scratch2, self.scratch3, [
+                # if the wff popped into param3 is ph->ps, copy param1 (ps) to topwff.
                 self.while_decnz(self.param1, [self.scratch1.inc, self.topwff.inc]),
                 self.while_decnz(self.scratch1, self.param1.inc)
                 ]),
