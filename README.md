@@ -8,10 +8,12 @@ Turing machine debugger, loosly based on gdb and pydb.
 
 ## zf2.py
 
-Produces a Turning machine with 385 states that halts if it finds an
+Produces a Turning machine with 432 states that halts if it finds an
 inconsistency in ZF2. This is a port of zf2.nql in
-<https://github.com/CatsAreFluffy/metamath-turing-machines> to a python list based
-intermediate representation. This is in turn compiled to a slightly different
+<https://github.com/sorear/metamath-turing-machines> and
+<https://github.com/CatsAreFluffy/metamath-turing-machines>
+into a python list based intermediate representation.
+This is in turn compiled to a slightly different
 register machine than used by NQL.
 
 ### usage:
@@ -20,8 +22,8 @@ register machine than used by NQL.
 $./zf2.py
 states count:
 framework:    96
-decision DAG: 285
-total:        381
+decision DAG: 336
+total:        432
 (tmdb) save zf2.tm
 (tmdb) q
 ```

@@ -6,8 +6,8 @@ from TMBuilder import subroutine
 class ZF2(TMBuilder.TMBuilder):
     """
 This program halts if it finds an inconsistency in ZF.
-It is a port of <https://github.com/CatsAreFluffy/metamath-turing-machines/blob/master/zf2.nql>
-
+It is a port of <https://github.com/sorear/metamath-turing-machines/blob/master/zf2.nql> with
+some ideas from <https://github.com/CatsAreFluffy/metamath-turing-machines/blob/master/zf2.nql>
     """
 
     def __init__(self):
@@ -69,7 +69,7 @@ It is a port of <https://github.com/CatsAreFluffy/metamath-turing-machines/blob/
         return [
             self.unpair(self.scratch1, self.scratch2, self.wffstack),
             self.while_decnz(self.scratch2, self.wffstack.inc),
-            self.pair(self.scratch2, self.topwff, self.scratch1),
+            self.pair(self.scratch2, self.scratch1, self.topwff),
             self.while_decnz(self.scratch2, self.topwff.inc)
                ]
 
@@ -95,11 +95,11 @@ It is a port of <https://github.com/CatsAreFluffy/metamath-turing-machines/blob/
 
     @subroutine
     def wex(self):
-        return [self.wn(), self.cons(), self.v_4(), self.cons(), self.wn()]
+        return [self.wn(), *self.wal(), self.wn()]
 
     @subroutine
     def wa(self):
-        return [self.wn(), self.cons(), self.v_2(),  self.cons(), self.wn()]
+        return [self.wn(), *self.wim(), self.wn()]
 
     @subroutine
     def par1(self):
@@ -133,9 +133,10 @@ It is a port of <https://github.com/CatsAreFluffy/metamath-turing-machines/blob/
     @subroutine
     def select(self):
         return [
-            self.unpair(self.scratch1, self.scratch2, self.wffstack),
+            self.while_decnz(self.topwff, self.scratch1.inc),
+            self.unpair(self.topwff, self.scratch2, self.wffstack),
             self.while_decnz(self.scratch2, self.wffstack.inc),
-            self.if_not_decnz(
+            self.if_decnz(
                 self.axiomcode,
                 [
                     self.while_decnz(self.topwff, ()),
@@ -191,16 +192,6 @@ It is a port of <https://github.com/CatsAreFluffy/metamath-turing-machines/blob/
             ])
                ]
 
-    @subroutine
-    def safety(self, p1, p2):
-        return [
-            # make copies of the parameters
-            self.while_decnz(p1, [self.scratch1.inc, self.scratch2.inc]),
-            self.while_decnz(self.scratch1, p1.inc),
-            self.while_decnz(p2, [self.scratch1.inc, self.scratch3.inc]),
-            self.while_decnz(self.scratch1, p2.inc),
-            self.if_eq(self.scratch2, self.scratch3, p1.inc)
-                ]
 
     @subroutine
     def main(self):
@@ -244,15 +235,37 @@ It is a port of <https://github.com/CatsAreFluffy/metamath-turing-machines/blob/
             self.while_decnz(self.scratch2, self.prooflist.inc),
             self.while_decnz(self.scratch1, self.param3.inc),
 
-            # B1
-            # no select since if axiomcode = 0 all selects reject the new entry
-            par1, par2, wim, par2, par3, wim, par1, par3, wim, wim, wim,
+            v_0, # default theorem if nothing is selected.
 
-            # B3
-            par1, par1, wn, par2, wim, wim, select,
+            # DET
+            self.cparam(self.param3), # minor premise ph
+            self.cparam(self.param2), # major premise ( ph -> ps), par1 = ps
+            par3, par1, wim,
+            # we've build ph->ps in topwff, move it to scratch2,
+            # leaving topwff as the |v_0 = v_0| wff.
+            self.while_decnz(self.topwff, self.scratch2.inc),
+            # copy param2 in scratch3
+            self.while_decnz(self.param2, [self.scratch1.inc, self.scratch3.inc]),
+            self.while_decnz(self.scratch1, self.param2.inc),
+            self.if_eq(self.scratch2, self.scratch3, [
+                # if the wff popped into param2 is ph->ps, copy param1 (ps) to topwff.
+                self.while_decnz(self.param1, [self.scratch1.inc, self.topwff.inc]),
+                self.while_decnz(self.scratch1, self.param1.inc)
+                ]),
+            select,
+
+            # GEN
+            self.cparam(self.param3), # ph
+            par1, par3, wal, select,
+
+            # B1
+            par1, par2, wim, par2, par3, wim, par1, par3, wim, wim, wim, select,
 
             # B2
             par1, wn, par1, wim, par1, wim, select,
+
+            # B3
+            par1, par1, wn, par2, wim, wim, select,
 
             # B4
             par1, par2, par3, wim, wal, par1, par2, wal, par1, par3, wal, wim, wim, select,
@@ -263,69 +276,70 @@ It is a port of <https://github.com/CatsAreFluffy/metamath-turing-machines/blob/
             # B8b
             par1, par2, weq, par1, par3, wel, par2, par3, wel, wim, wim, select,
 
+            # B6a
+            par1, par2, weq, par3, par1, par2, weq, wal, wim,
+            par1, par2, wel, par3, par1, par2, wel, wal, wim, wa,
+            # copy param1 into scratch2 and param3 into scratch3
+            self.while_decnz(self.param1, [self.scratch1.inc, self.scratch2.inc]),
+            self.while_decnz(self.scratch1, self.param1.inc),
+            self.while_decnz(self.param3, [self.scratch1.inc, self.scratch3.inc]),
+            self.while_decnz(self.scratch1, self.param1.inc),
+            self.if_eq(self.scratch2, self.scratch3, [
+                self.while_decnz(self.topwff, ())
+                ]),
+            # copy param2 into scratch2 and param3 into scratch3
+            self.while_decnz(self.param2, [self.scratch1.inc, self.scratch2.inc]),
+            self.while_decnz(self.scratch1, self.param2.inc),
+            self.while_decnz(self.param3, [self.scratch1.inc, self.scratch3.inc]),
+            self.while_decnz(self.scratch1, self.param1.inc),
+            self.if_eq(self.scratch2, self.scratch3, [
+                self.while_decnz(self.topwff, ())
+                ]),
+            select,
+
+            # B6b
+            par1, par2, par3, wal, wal, par2, par1, par3, wal, wal, wim, select,
+
             # B6c
-            par1, par1, par2, wal, wex, par1, par2, wal, wim, select,
-
-            # B8a
-            # ( P = Q -> ( P = R -> Q = R) )
-            # derivable using EXT
-            par1, par2, weq, par1, par3, weq, par2, par3, weq, wim, wim, select,
-
-            # B8c
-            par1, par2, weq, par3, par1, wel, par3, par2, wel, wim, wim, select,
+            par1, par1, par2, wal, wex, par2, wim, select,
 
             # B7
             par1, par1, par2, weq, wex, select,
 
+            # B8a
+            par1, par2, weq, par1, par3, weq, par2, par3, weq, wim, wim, select,
+
+            # B8b
+            par1, par2, weq, par1, par3, wel, par2, par3, wel, wim, wim, select,
+
+            # B8c
+            par1, par2, weq, par3, par1, wel, par3, par2, wel, wim, wim, select,
+
+            # EXT
+            v_2,
+            v_2, v_0, wel, v_2, v_1, wel, wim,
+            v_2, v_1, wel, v_2, v_0, wel, wim, wa,
+            wal, v_0, v_1, weq, wim, select,
+
+            # REP
+            v_3, v_1, v_2, v_1, par1, wal, v_2, v_1, weq, wim, wal, wex, wal,
+            v_1, v_2,
+            v_2, v_1, wel, v_3, v_3, v_0, wel, v_1, par1, wal, wa, wex, wim,
+            v_3, v_3, v_0, wel, v_1, par1, wal, wa, wex, v_2, v_1, wel, wim, wa,
+            wal, wex,
+            wim, select,
+
             # POW
-            # E. y A. z ( A. y ( y e. z -> y e. x ) -> z e. y )
-            par2, par3, par2, par2, par3, wel, par2, par1, wel, wim, wal, par3, par2, wel, wim, wal, wex, select,
+            v_1, v_2, v_3, v_3, v_2, wel, v_3, v_0, wel, wim, wal, v_2, v_1, wel, wim, wal, wex, select,
 
             # UNI
-            # E. y A. z ( E. y ( z e. y /\ y e. x ) -> z e. y )
-            par2, par3, par2, par3, par2, wel, par2, par1, wel, wa, wex, par3, par2, wel, wim, wal, wex, select,
+            v_1, v_2, v_3, v_2, v_3, wel, v_3, v_0, wel, wa, wex, v_2, v_1, wel, wim, wal, wex, select,
 
-            # INF+COl+SEP
-            # E. y ( A. z (( z e. x -> ( E. x A. y P -> z e. y ) ) /\ ( z e. y -> E. x P ) ) /\ A. x ( x e. y -> A. z  ( A. y P -> E. z ( z e. y /\ P ) ) ) )
-            par2, par3, par3, par1, wel, par1, par2, par1, wal, wex, par3, par2, wel, wim, wim,
-            par3, par2, wel, par1, par1, wex, wim, wa,
-            wal, par1, par1, par2, wel, par3, par2, par1, wal,
-            par3, par3, par2, wel, par1, wa, wex, wim, wal, wim, wal, wa, wex,
-            select,
-
-            self.safety(self.param1, self.param3),
-            self.safety(self.param2, self.param3),
-            # B6a1
-            par1, par2, weq, par3, par1, par2, weq, wal, wim,
-            select,
-            # B6a2
-            par1, par2, wel, par3, par1, par2, wel, wal, wim,
-            select,
-
-            # GEN
-            # ph
-            self.cparam(self.param2),
-            par1, par2, wal, select,
-
-            # DET
-            # ph
-            self.cparam(self.param2),
-            # ph -> ps
-            self.cparam(self.param3),
-            # param1 = ps
-            par2, par1, wim,
-            # we've build ph->ps in topwff, move it to scratch2,
-            # leaving topwff as the |v_0 = v_0| wff.
-            self.while_decnz(self.topwff, self.scratch2.inc),
-            # let scratch3 = param3
-            self.while_decnz(self.param3, [self.scratch1.inc, self.scratch3.inc]),
-            self.while_decnz(self.scratch1, self.param3.inc),
-            self.if_eq(self.scratch2, self.scratch3, [
-                # if the wff popped into param3 is ph->ps, copy param1 (ps) to topwff.
-                self.while_decnz(self.param1, [self.scratch1.inc, self.topwff.inc]),
-                self.while_decnz(self.scratch1, self.param1.inc)
-                ]),
-            select,
+            # INF
+            v_1, v_0, v_1, wel, v_0, v_0, v_1, wel, v_2, v_2, v_1, wel,
+            v_1, v_1, v_2, wel, v_1, v_0, weq, wim,
+            v_1, v_0, weq, v_1, v_2, wel, wim, wa, wal,
+            wa, wex, wim, wal, wa, wex, select,
 
             # check if we've proved the false v_0 e. v_0 wff.
             [
