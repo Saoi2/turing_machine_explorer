@@ -300,9 +300,9 @@
 # way boot2 works this doesn't cause problems.
 #
 5.root.1 0 0 R 0b.boot2.0
-5.root.1 1 1 R 5.root.1.1
-5.root.1.1 0 0 R main().0
-5.root.1.1 1 0 R main().0
+5.root.1 1 1 R 5.root.2
+5.root.2 0 0 R main().0
+5.root.2 1 0 R main().0
 #
 #
 # 6. PC jump instructions.
@@ -732,7 +732,7 @@ main().n_139.0 0 0 R main().n_160.0
 main().n_139.0 1 1 R wel().0
 main().n_140.0 0 0 R while_decnz(param3,96).0
 main().n_140.0 1 1 R main().n_140.1
-main().n_140.1 0 0 R while_decnz(scratch1,3.param1.inc).0
+main().n_140.1 0 0 R while_decnz(scratch1,3.param3.inc).0
 main().n_140.1 1 1 R if_eq(scratch2,scratch3,61).0
 main().n_141.0 0 0 R v_1().0
 main().n_141.0 1 1 R main().n_161.0

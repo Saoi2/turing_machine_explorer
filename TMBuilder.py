@@ -191,9 +191,9 @@ framework = """
 # way boot2 works this doesn't cause problems.
 #
 5.root.1 0 0 R 0b.boot2.0
-5.root.1 1 1 R 5.root.1.1
-5.root.1.1 0 0 R main().0
-5.root.1.1 1 0 R main().0
+5.root.1 1 1 R 5.root.2
+5.root.2 0 0 R main().0
+5.root.2 1 0 R main().0
 #
 #
 # 6. PC jump instructions.
