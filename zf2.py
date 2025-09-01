@@ -218,6 +218,8 @@ some ideas from <https://github.com/CatsAreFluffy/metamath-turing-machines/blob/
                 self.nextproof.inc,
                 ]),
 
+            self.debug_assert_eq_val(self.scratch1, 0),
+            self.debug_assert_eq_val(self.scratch2, 0),
             self.while_decnz(self.axiomcode, ()),
             self.while_decnz(self.param1, ()),
             self.while_decnz(self.param2, ()),

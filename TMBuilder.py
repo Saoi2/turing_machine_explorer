@@ -2,6 +2,7 @@
 
 import tm
 import tmdb
+import argparse
 
 framework = """
 #! start 0a.boot1.A
@@ -250,6 +251,8 @@ def subroutine(func):
 
         rv = tuple(v for v in (self.add_sequence(v2) for v2 in func(self, *new_args)) if v != ())
         self.memo[key] = rv
+        if rv == ():
+            return ()
         subroutine_seq = self.add_sequence(rv)
         if self.sequences[subroutine_seq].name is None:
             self.sequences[subroutine_seq].name = "{}({}).0".format(func.__name__, ",".join(str(v) for v in new_args))
@@ -270,6 +273,7 @@ class TMBuilder:
         self.sequences = []
         self.sequence_lookup = {}
         self.memo = {}
+        self.debug = False
 
     def reg(self, name):
         if name not in self.registers:
@@ -302,8 +306,11 @@ class TMBuilder:
         while isinstance(tree, (list, tuple)) and len(tree) == 1:
             tree=tree[0]
 
-        if not isinstance(tree, (list, tuple)) or len(tree) == 0:
+        if not isinstance(tree, (list, tuple)):
             return tree
+
+        if len(tree) == 0:
+            return ()
 
         key = tuple(v for v in (self.add_sequence(entry) for entry in tree) if v!= ())
 
@@ -593,6 +600,12 @@ class TMBuilder:
 
 
     def process_cmdline(self):
+        parser = argparse.ArgumentParser(description="Compiles to turing machines.")
+        parser.add_argument('--debug', action='store_true',
+                            help='Compile asserts')
+        args = parser.parse_args()
+        self.debug = args.debug
+
         self.build_machine()
         print("states count:")
         print("framework:    {}".format(len(set(state[0] for state in self.tm.states if state[0][0] in "0123456789"))))
@@ -739,4 +752,101 @@ class TMBuilder:
             ])
                 ]
 
+    @subroutine
+    # zeros in1, in2
+    def if_neq(self, in1, in2, body):
+        return [
+            self.label(
+            "fn",
+            [
+                self.label(
+                "test",
+                [
+                    self.label(
+                    "loop",
+                    [
+                        in1.decnz,
+                        [
+                            [
+                                in2.decnz,
+                                "continue_loop"
+                            ],
+                            [
+                                # in1 > in2
+                                # zero in1 and break to body
+                                self.while_decnz(in1, ()),
+                                "break_test"
+                            ]
+                        ]
+                    ]),
+                    # if in2 is 0 then the two match
+                    [
+                        [
+                            in2.decnz,
+                            [
+                                # in2 > in1
+                                # zero in2 and break to body
+                                self.while_decnz(in2, ()),
+                                "break_test"
+                            ]
+                        ],
+                        "break_fn"
+                    ]
+                ]),
+                body
+            ])
+               ]
+
+    @subroutine
+    def add_value(self, var, value):
+        if value < 2:
+            if value == 0:
+                return []
+            else:
+                return [ var.inc ]
+        else:
+            return [
+                self.add_value(var, 1 << ((value - 1).bit_length() - 1)),
+                self.add_value(var, value - (1 << ((value - 1).bit_length() - 1)))
+                   ]
+
+    @subroutine
+    def copy(self, out1, in1):
+        return [
+            self.while_decnz(out1, ()),
+            self.while_decnz(in1, self.reg("copy_scratch").inc),
+            self.while_decnz(self.reg("copy_scratch"), [in1.inc, out1.inc])
+               ]
+
+    @subroutine
+    def assert_eq(self, var1, var2):
+        return [
+            self.copy(self.reg("assert_var1"), var1),
+            self.copy(self.reg("assert_var2"), var2),
+            self.if_neq(self.reg("assert_var1"),
+                        self.reg("assert_var2"),
+                        f"assert_eq({var1},{var2})!failed")
+               ]
+
+    @subroutine
+    def assert_eq_val(self, var1, val):
+        return [
+            self.copy(self.reg("assert_var1"), var1),
+            self.add_value(self.reg("assert_var2"), val),
+            self.if_neq(self.reg("assert_var1"),
+                        self.reg("assert_var2"),
+                        f"assert_eq({var1},{val})!failed")
+               ]
+
+    def debug_assert_eq(self, var1, var2):
+        if self.debug:
+            return self.assert_eq(var1, var2)
+        else:
+            return []
+
+    def debug_assert_eq_val(self, var1, val):
+        if self.debug:
+            return self.assert_eq_val(var1, val)
+        else:
+            return []
 

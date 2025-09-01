@@ -265,12 +265,12 @@ class TMDB:
 
 import argparse
 
-parser = argparse.ArgumentParser(description="Debugger for Turing machines")
-parser.add_argument("TM_Files", metavar="TM_File", help="Turing Machine file", nargs="*")
-
-args = parser.parse_args()
-
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description="Debugger for Turing machines")
+    parser.add_argument("TM_Files", metavar="TM_File", help="Turing Machine file", nargs="*")
+
+    args = parser.parse_args()
+
     tmdb = TMDB()
     for fname in args.TM_Files:
         tmdb.tm.load(fname)
