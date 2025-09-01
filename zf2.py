@@ -133,6 +133,8 @@ some ideas from <https://github.com/CatsAreFluffy/metamath-turing-machines/blob/
     @subroutine
     def select(self):
         return [
+            self.debug_assert_eq_val(self.scratch1, 0),
+            self.debug_assert_eq_val(self.scratch2, 0),
             self.while_decnz(self.topwff, self.scratch1.inc),
             self.unpair(self.topwff, self.scratch2, self.wffstack),
             self.while_decnz(self.scratch2, self.wffstack.inc),
@@ -149,6 +151,8 @@ some ideas from <https://github.com/CatsAreFluffy/metamath-turing-machines/blob/
     @subroutine
     def cparam(self, p):
         return [
+            self.debug_assert_eq_val(self.scratch1, 0),
+            self.debug_assert_eq_val(self.scratch2, 0),
             self.label(
             "fn",
             [
@@ -281,22 +285,30 @@ some ideas from <https://github.com/CatsAreFluffy/metamath-turing-machines/blob/
             # B6a
             par1, par2, weq, par3, par1, par2, weq, wal, wim,
             par1, par2, wel, par3, par1, par2, wel, wal, wim, wa,
+
+            # if (param1 == param3 || param2 == param3) { topwff = 0 }
             # copy param1 into scratch2 and param3 into scratch3
             self.while_decnz(self.param1, [self.scratch1.inc, self.scratch2.inc]),
             self.while_decnz(self.scratch1, self.param1.inc),
             self.while_decnz(self.param3, [self.scratch1.inc, self.scratch3.inc]),
-            self.while_decnz(self.scratch1, self.param1.inc),
+            self.while_decnz(self.scratch1, self.param3.inc),
             self.if_eq(self.scratch2, self.scratch3, [
                 self.while_decnz(self.topwff, ())
                 ]),
+            self.debug_assert_eq_val(self.scratch1, 0),
+            self.debug_assert_eq_val(self.scratch2, 0),
+            self.debug_assert_eq_val(self.scratch3, 0),
             # copy param2 into scratch2 and param3 into scratch3
             self.while_decnz(self.param2, [self.scratch1.inc, self.scratch2.inc]),
             self.while_decnz(self.scratch1, self.param2.inc),
             self.while_decnz(self.param3, [self.scratch1.inc, self.scratch3.inc]),
-            self.while_decnz(self.scratch1, self.param1.inc),
+            self.while_decnz(self.scratch1, self.param3.inc),
             self.if_eq(self.scratch2, self.scratch3, [
                 self.while_decnz(self.topwff, ())
                 ]),
+            self.debug_assert_eq_val(self.scratch1, 0),
+            self.debug_assert_eq_val(self.scratch2, 0),
+            self.debug_assert_eq_val(self.scratch3, 0),
             select,
 
             # B6b
