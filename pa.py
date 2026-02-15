@@ -3,11 +3,11 @@
 import TMBuilder
 from TMBuilder import subroutine
 
-class ZF2(TMBuilder.TMBuilder):
+class PA(TMBuilder.TMBuilder):
     """
-This program halts if it finds an inconsistency in ZF.
-It is a port of <https://github.com/sorear/metamath-turing-machines/blob/master/zf2.nql> with
-some ideas from <https://github.com/CatsAreFluffy/metamath-turing-machines/blob/master/zf2.nql>
+This program halts if it finds an inconsistency in PA.
+It is a modified version of <https://codeberg.org/ajwade/turing_machine_explorer/src/branch/main/zf2.py>
+using a PA-equivalent theory from Harvey Friedman, 2002, "Issues in the Foundations of Mathematics", p. 10.
     """
 
     def __init__(self):
@@ -358,4 +358,4 @@ some ideas from <https://github.com/CatsAreFluffy/metamath-turing-machines/blob/
                ]
 
 if __name__ == "__main__":
-    ZF2().process_cmdline()
+    PA().process_cmdline()
