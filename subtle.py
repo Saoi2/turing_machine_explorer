@@ -355,6 +355,10 @@ some ideas from <https://github.com/CatsAreFluffy/metamath-turing-machines/blob/
             v_1, v_0, weq, v_1, v_2, wel, wim, wa, wal,
             wa, wex, wim, wal, wa, wex, select,
 
+            # CHOICE
+
+            # NEW AXIOM:
+
             # check if we've proved the false v_0 e. v_0 wff.
             [
                 self.topwff.decnz,
