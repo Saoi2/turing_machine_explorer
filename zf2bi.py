@@ -217,6 +217,7 @@ some ideas from <https://github.com/CatsAreFluffy/metamath-turing-machines/blob/
         wal = self.wal()
         wex = self.wex()
         wa = self.wa()
+        wb = self.wb()
         v_0 = self.v_0()
         v_1 = self.v_1()
         v_2 = self.v_2()
