@@ -65,6 +65,13 @@ some ideas from <https://github.com/CatsAreFluffy/metamath-turing-machines/blob/
                ]
 
     @subroutine
+    def v_5(self):
+        return [
+            *self.v_4(),
+            self.topwff.inc
+               ]
+    
+    @subroutine
     def cons(self):
         return [
             self.unpair(self.scratch1, self.scratch2, self.wffstack),
@@ -100,6 +107,10 @@ some ideas from <https://github.com/CatsAreFluffy/metamath-turing-machines/blob/
     @subroutine
     def wa(self):
         return [self.wn(), *self.wim(), self.wn()]
+
+    @subroutine
+    def wb(self):
+        return [self.cons(), self.v_5(), self.cons()]
 
     @subroutine
     def par1(self):
@@ -328,6 +339,12 @@ some ideas from <https://github.com/CatsAreFluffy/metamath-turing-machines/blob/
 
             # B8c
             par1, par2, weq, par3, par1, wel, par3, par2, wel, wim, wim, select,
+
+            # BI AXIOM 1
+            par1, par2, wb, par1, par2, wim, par2, par1, wim, wa, wim, select
+
+            # BI AXIOM 2
+            par1, par2, wim, par2, par1, wim, wa, par1, par2, wb, wim, select
 
             # EXT
             v_2,
