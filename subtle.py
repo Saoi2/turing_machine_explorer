@@ -5,7 +5,7 @@ from TMBuilder import subroutine
 
 class ZF2(TMBuilder.TMBuilder):
     """
-This program halts if it finds an inconsistency in ZF.
+This program halts if it finds an inconsistency in ZF+{"there is an n-subtle cardinal" | n < ω}.
 It is a port of <https://github.com/sorear/metamath-turing-machines/blob/master/zf2.nql> with
 some ideas from <https://github.com/CatsAreFluffy/metamath-turing-machines/blob/master/zf2.nql>
     """
@@ -354,13 +354,6 @@ some ideas from <https://github.com/CatsAreFluffy/metamath-turing-machines/blob/
             v_1, v_1, v_2, wel, v_1, v_0, weq, wim,
             v_1, v_0, weq, v_1, v_2, wel, wim, wa, wal,
             wa, wex, wim, wal, wa, wex, select,
-
-            #CHOICE
-            v_1, v_3, v_2,
-            v_1, v_0, wel, v_3, v_1, wel, v_2, v_0, wel, v_3, v_2, wel, v_1, v_2, weq, wim, wim, wn, wim, wim,
-            v_1, v_0, wel, wn, v_3, v_0, wel, v_2, v_3, wel, v_2, v_1, wel,
-            v_0, v_0, v_3, wel, v_0, v_1, wel, v_0, v_2, weq, wim, wim, wal,
-            wn, wim, wim, wn, wim, wim, wa, wex, wal, wex, select,
 
             #SUBTLE
             v_0, v_1, v_2, v_0, v_2, v_1, wel,
