@@ -5,7 +5,7 @@ from TMBuilder import subroutine
 
 class ZF2(TMBuilder.TMBuilder):
     """
-This program halts if it finds an inconsistency in ZF+{"there is an n-subtle cardinal" | n < ω}.
+This program halts if it finds an inconsistency in ZF+"there exist arbitrarily large subtle cardinals".
 It is a port of <https://github.com/sorear/metamath-turing-machines/blob/master/zf2.nql> with
 some ideas from <https://github.com/CatsAreFluffy/metamath-turing-machines/blob/master/zf2.nql>
     """
